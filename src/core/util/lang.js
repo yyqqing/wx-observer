@@ -25,9 +25,9 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
  */
 const bailRE = /[^\w.$]/
 export function parsePath (path: string): any {
-  if (bailRE.test(path)) {
-    return
-  }
+  // if (bailRE.test(path)) {
+  //   return
+  // }
   const segments = path.split('.')
   return function (obj) {
     for (let i = 0; i < segments.length; i++) {

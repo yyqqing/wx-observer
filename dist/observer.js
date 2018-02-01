@@ -213,14 +213,10 @@ function def (obj, key, val, enumerable) {
   });
 }
 
-/**
- * Parse simple path.
- */
-var bailRE = /[^\w.$]/;
 function parsePath (path) {
-  if (bailRE.test(path)) {
-    return
-  }
+  // if (bailRE.test(path)) {
+  //   return
+  // }
   var segments = path.split('.');
   return function (obj) {
     for (var i = 0; i < segments.length; i++) {
@@ -1620,6 +1616,46 @@ function proxy(target, sourceKey, key) {
   Object.defineProperty(target, key, sharedPropertyDefinition);
 }
 
+var __innerUpdate = function (path, newval, oldval) {
+  var obj;
+
+  var wxpath = path.replace(/\.(\d)\./g, '[$1].');
+  console.log('page._update : ', path, wxpath, newval, oldval);
+  this.setData(( obj = {}, obj[("" + wxpath)] = newval, obj));
+  if (this._update) {
+    // 页面内函数
+    this._update.call(this, path, newval, oldval);
+  }
+};
+
+function _watchData(target, data, preKeyPath) {
+  if ( preKeyPath === void 0 ) preKeyPath = '';
+
+  if (Array.isArray(data)) {
+    for (var i = 0, l = data.length; i < l; i++) {
+      _watchData(target, data[i], preKeyPath + i + '.');
+    }
+  } else {
+    var updater = __innerUpdate.bind(target);
+
+    var keys = Object.keys(data);
+    for (var i$1 = 0; i$1 < keys.length; i$1++) {
+      var pk = preKeyPath + keys[i$1];
+      if (!isReserved(pk)) {
+        // console.log('watching : ', pk)
+        proxy(target, "__data", pk);
+        new Watcher(target, pk, updater);
+
+        var _data = data[keys[i$1]];
+        if ((Array.isArray(_data) || isPlainObject(_data)) &&
+          Object.isExtensible(_data)) {
+          _watchData(target, _data, pk + '.');
+        }
+      }
+    }
+  }
+}
+
 var observe$$1 = function(page) {
 
   var oldOnLoad = page.onLoad;
@@ -1627,40 +1663,37 @@ var observe$$1 = function(page) {
 
   page._watchers = [];
 
-  var innerUpdate = page._update = function(path, newval, oldval) {
-    var obj;
+  page.onLoad = function() {
+    this.$reWatch();
 
-    console.log('page._update : ', path, newval, oldval);
-
-    this.setData(( obj = {}, obj[("" + path)] = newval, obj));
-  };
-
-  var _watchData = function (target, data, preKeyPath) {
-    if ( preKeyPath === void 0 ) preKeyPath = '';
-
-    if (Array.isArray(data)) {
-      for (var i = 0, l = data.length; i < l; i++) {
-        _watchData(target, data[i], preKeyPath + i + '.');
-      }
-    } else {
-      var keys = Object.keys(data);
-      for (var i$1 = 0; i$1 < keys.length; i$1++) {
-        var pk = preKeyPath + keys[i$1];
-        if (!isReserved(pk)) {
-          proxy(target, "__data", pk);
-          new Watcher(target, pk, innerUpdate);
-
-          var _data = data[keys[i$1]];
-          if ((Array.isArray(_data) || isPlainObject(_data)) &&
-            Object.isExtensible(_data)) {
-            _watchData(target, _data, pk + '.');
-          }
-        }
-      }
+    if (oldOnLoad) {
+      oldOnLoad.apply(this, arguments);
     }
   };
 
-  page.onLoad = function() {
+  page.onUnload = function() {
+    this.__clswc();
+
+    if (oldOnUnload) {
+      oldOnUnload.apply(this, arguments);
+    }
+  };
+
+  page.__clswc = function() {
+    var this$1 = this;
+
+    var i = this._watchers.length;
+    while (i--) {
+      // console.log('page.__clswc : teardown ', i)
+      this$1._watchers[i].teardown();
+    }
+
+    this._watchers = [];
+  };
+
+  page.$reWatch = function () {
+    this.__clswc();
+
     var props = this.__data = this.props || {};
 
     var prevShouldConvert = observerState.shouldConvert;
@@ -1669,24 +1702,6 @@ var observe$$1 = function(page) {
     observerState.shouldConvert = prevShouldConvert;
 
     _watchData(this, props);
-
-    if (oldOnLoad) {
-      oldOnLoad.apply(this, arguments);
-    }
-  };
-
-  page.onUnload = function() {
-    var this$1 = this;
-
-    var i = this._watchers.length;
-    while (i--) {
-      console.log('page.onUnload : teardown ', i);
-      this$1._watchers[i].teardown();
-    }
-
-    if (oldOnUnload) {
-      oldOnUnload.apply(this, arguments);
-    }
   };
 
   return page
