@@ -1114,6 +1114,8 @@ var VM = function VM(target) {
   Object.keys(props).forEach(function (key) {
     if (!isReserved(key)) {
       proxy(this$1, "_data", key);
+      // init setData
+      this$1._render(key, props[key], props[key]);
     }
   });
   makeObservable(props, false);
@@ -1149,7 +1151,7 @@ var observe$$1 = function(page) {
     page._update = function(wxpath, newval, oldval) {
       var obj;
 
-      console.warn(("(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = " + wxpath + ", \n    newval = " + newval + ", \n    oldval = " + oldval));
+      console.warn('(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = ', wxpath, '\n    newval = ', newval, '\n    oldval = ', oldval);
       this.setData(( obj = {
         'path': wxpath,
         'newval': newval,

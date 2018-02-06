@@ -2,7 +2,7 @@
 //获取应用实例
 const app = getApp()
 
-const observer = require('../../observer/observer.min.js')
+const observer = require('../../observer/observer.js')
 var model = require('../../utils/model.js')
 
 Page(observer.observe({

@@ -56,6 +56,8 @@ class VM {
     Object.keys(props).forEach(key => {
       if (!isReserved(key)) {
         proxy(this, `_data`, key)
+        // init setData
+        this._render(key, props[key], props[key])
       }
     })
     makeObservable(props, false)
@@ -88,7 +90,7 @@ var observe = function(page) {
 
   if (!page._update) {
     page._update = function(wxpath, newval, oldval) {
-      console.warn(`(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = ${wxpath}, \n    newval = ${newval}, \n    oldval = ${oldval}`)
+      console.warn('(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = ', wxpath, '\n    newval = ', newval, '\n    oldval = ', oldval)
       this.setData({
         'path': wxpath,
         'newval': newval,

@@ -1,4 +1,4 @@
-const observer = require('../observer/observer.min.js')
+const observer = require('../observer/observer.js')
 
 var observedObj = observer.makeObservable({
   prop1: 'prop1...',
