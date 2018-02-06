@@ -1,6 +1,6 @@
 /* @flow */
 
-import { observe as vueObserve, observerState } from 'core/observer/index'
+import { observe as vueObserve } from 'core/observer/index'
 import Watcher from 'core/observer/watcher'
 import { noop, hasOwn, isReserved, isPlainObject } from 'core/util/index'
 
@@ -12,8 +12,6 @@ const sharedPropertyDefinition = {
 }
 
 const computedWatcherOptions = { lazy: true }
-
-// var computed = {}
 
 function proxy(target, sourceKey, key) {
   sharedPropertyDefinition.get = function() {
@@ -36,13 +34,10 @@ function _watchData(vm, data, preKeyPath = '') {
       let pk = preKeyPath + keys[i]
 
       if (!isReserved(pk)) {
-        // console.log('watching : ', pk)
-        // proxy(vm, `_data`, pk)
         new Watcher(vm, pk, vm._renderDelegate)
 
         let _data = data[keys[i]]
-        if ((Array.isArray(_data) || isPlainObject(_data)) &&
-          Object.isExtensible(_data)) {
+        if ((Array.isArray(_data) || isPlainObject(_data)) && Object.isExtensible(_data)) {
           _watchData(vm, _data, pk + '.')
         }
       }
@@ -50,51 +45,10 @@ function _watchData(vm, data, preKeyPath = '') {
   }
 }
 
-function defineComputed(
-  target: any,
-  key: string,
-  userDef: Object | Function
-) {
-  const shouldCache = true
-  if (typeof userDef === 'function') {
-    sharedPropertyDefinition.get = shouldCache ?
-      createComputedGetter(key) :
-      userDef
-    sharedPropertyDefinition.set = noop
-  } else {
-    sharedPropertyDefinition.get = userDef.get ?
-      shouldCache && userDef.cache !== false ?
-      createComputedGetter(key) :
-      userDef.get :
-      noop
-    sharedPropertyDefinition.set = userDef.set ?
-      userDef.set :
-      noop
-  }
-
-  Object.defineProperty(target, key, sharedPropertyDefinition)
-}
-
-function createComputedGetter(key) {
-  return function computedGetter() {
-    const watcher = this._computedWatchers && this._computedWatchers[key]
-    if (watcher) {
-      if (watcher.dirty) {
-        watcher.evaluate()
-      }
-      if (Dep.target) {
-        watcher.depend()
-      }
-      return watcher.value
-    }
-  }
-}
-
-
 class VM {
   constructor(target) {
     this._watchers = []
-    this._computedWatchers = Object.create(null)
+    this._computedWatchers = {}
 
     this._render = target._update
 
@@ -134,7 +88,7 @@ var observe = function(page) {
 
   if (!page._update) {
     page._update = function(wxpath, newval, oldval) {
-      console.warn(`page._update(@wx-observe default) : \n    path = ${wxpath}, \n    newval = ${newval}, \n    oldval = ${oldval}`)
+      console.warn(`(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = ${wxpath}, \n    newval = ${newval}, \n    oldval = ${oldval}`)
       this.setData({
         'path': wxpath,
         'newval': newval,
