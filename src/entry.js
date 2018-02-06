@@ -132,20 +132,21 @@ var observe = function(page) {
   var oldOnLoad = page.onLoad
   var oldOnUnload = page.onUnload
 
+  if (!page._update) {
+    page._update = function(wxpath, newval, oldval) {
+      console.warn(`page._update(@wx-observe default) : \n    path = ${wxpath}, \n    newval = ${newval}, \n    oldval = ${oldval}`)
+      this.setData({
+        [`${wxpath}`]: newval,
+        [`${wxpath}_oldval`]: oldval
+      })
+    }
+  }
+
   page.onLoad = function() {
     this._vm = new VM(this)
 
     if (oldOnLoad) {
       oldOnLoad.apply(this, arguments)
-    }
-  }
-
-  if (!page._update) {
-    page._update = function(wxpath, newval, oldval) {
-      this.setData({
-        [`${wxpath}`]: newval,
-        [`${wxpath}.oldval`]: oldval
-      })
     }
   }
 

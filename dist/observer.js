@@ -1150,6 +1150,15 @@ var observe$$1 = function(page) {
   var oldOnLoad = page.onLoad;
   var oldOnUnload = page.onUnload;
 
+  if (!page._update) {
+    page._update = function(wxpath, newval, oldval) {
+      var obj;
+
+      console.warn(("page._update(@wx-observe default) : \n    path = " + wxpath + ", \n    newval = " + newval + ", \n    oldval = " + oldval));
+      this.setData(( obj = {}, obj[("" + wxpath)] = newval, obj[(wxpath + "_oldval")] = oldval, obj));
+    };
+  }
+
   page.onLoad = function() {
     this._vm = new VM(this);
 
@@ -1157,14 +1166,6 @@ var observe$$1 = function(page) {
       oldOnLoad.apply(this, arguments);
     }
   };
-
-  if (!page._update) {
-    page._update = function(wxpath, newval, oldval) {
-      var obj;
-
-      this.setData(( obj = {}, obj[("" + wxpath)] = newval, obj[(wxpath + ".oldval")] = oldval, obj));
-    };
-  }
 
   page.onUnload = function() {
     if (this._vm) {
