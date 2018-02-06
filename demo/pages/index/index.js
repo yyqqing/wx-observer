@@ -10,11 +10,7 @@ Page(observer.observe({
     model
   },
 
-  data: {
-    path: '',
-    val: ''
-  },
-
+  // 自定义刷新
   // _update(path, newval, oldval) {
   //   console.log('page.index..._update = ', this, path, newval, oldval)
   //   this.setData({
@@ -24,27 +20,13 @@ Page(observer.observe({
   //   })
   // },
 
-  // getterTest: {
-  //   aa: 1,
-  //   get bb() {
-  //     return 'bb'
-  //   }
-  // },
+  data: {
+    path: '',
+    val: ''
+  },
 
   onLoad: function () {
     console.log('pages/index/index : onLoad = ', this, model)
-    // observer.observe(model, (path, newval, oldval)=>{
-    //   console.log('index observe callback : path = ', path, ', ', newval, ' => ', oldval)
-    //   this.setData({
-    //     path: path,
-    //     val: newval
-    //   })
-    // })
-    // var o = { aa:1, get foo() { return 17; } }
-    // for (var k in o) {
-    //   let kd = Object.getOwnPropertyDescriptor(o, k)
-    //   console.log(k, ' = ', kd)
-    // }
   },
 
   btntap(e) {
