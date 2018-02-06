@@ -1156,8 +1156,10 @@ var observe$$1 = function(page) {
 
       console.warn(("page._update(@wx-observe default) : \n    path = " + wxpath + ", \n    newval = " + newval + ", \n    oldval = " + oldval));
       this.setData(( obj = {
-        'path': wxpath
-      }, obj[("" + wxpath)] = newval, obj[(wxpath + "_oldval")] = oldval, obj));
+        'path': wxpath,
+        'newval': newval,
+        'oldval': oldval
+      }, obj[("" + wxpath)] = newval, obj));
     };
   }
 

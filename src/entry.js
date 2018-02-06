@@ -137,8 +137,9 @@ var observe = function(page) {
       console.warn(`page._update(@wx-observe default) : \n    path = ${wxpath}, \n    newval = ${newval}, \n    oldval = ${oldval}`)
       this.setData({
         'path': wxpath,
-        [`${wxpath}`]: newval,
-        [`${wxpath}_oldval`]: oldval
+        'newval': newval,
+        'oldval': oldval,
+        [`${wxpath}`]: newval
       })
     }
   }
