@@ -1,3 +1,8 @@
+/*!
+ * WxObserver.js v0.0.1
+ * (c) 2014-2018 yyqqing
+ * Released under the MIT License.
+ */
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -37,9 +42,7 @@ function isObject (obj) {
  */
 var _toString = Object.prototype.toString;
 
-function toRawType (value) {
-  return _toString.call(value).slice(8, -1)
-}
+
 
 /**
  * Strict object type check. Only returns true
@@ -54,10 +57,7 @@ function isPlainObject (obj) {
 /**
  * Check if val is a valid array index.
  */
-function isValidArrayIndex (val) {
-  var n = parseFloat(String(val));
-  return n >= 0 && Math.floor(n) === n && isFinite(val)
-}
+
 
 /**
  * Convert a value to a string that is actually rendered.
@@ -145,12 +145,7 @@ function hasOwn (obj, key) {
 /**
  * Mix properties into target object.
  */
-function extend (to, _from) {
-  for (var key in _from) {
-    to[key] = _from[key];
-  }
-  return to
-}
+
 
 /**
  * Merge an Array of Objects into a single Object.
@@ -167,12 +162,12 @@ function noop (a, b, c) {}
 /**
  * Always return false.
  */
-var no = function (a, b, c) { return false; };
+
 
 /**
  * Return same value
  */
-var identity = function (_) { return _; };
+
 
 /**
  * Generate a static keys string from compiler modules.
@@ -213,10 +208,14 @@ function def (obj, key, val, enumerable) {
   });
 }
 
+/**
+ * Parse simple path.
+ */
+var bailRE = /[^\w.$]/;
 function parsePath (path) {
-  // if (bailRE.test(path)) {
-  //   return
-  // }
+  if (bailRE.test(path)) {
+    return
+  }
   var segments = path.split('.');
   return function (obj) {
     for (var i = 0; i < segments.length; i++) {
@@ -232,34 +231,8 @@ function parsePath (path) {
 // can we use __proto__?
 var hasProto = '__proto__' in {};
 
-// Browser environment sniffing
-var inBrowser = typeof window !== 'undefined';
-var inWeex = typeof WXEnvironment !== 'undefined' && !!WXEnvironment.platform;
-var weexPlatform = inWeex && WXEnvironment.platform.toLowerCase();
-var UA = inBrowser && window.navigator.userAgent.toLowerCase();
-var isIE = UA && /msie|trident/.test(UA);
-var isIE9 = UA && UA.indexOf('msie 9.0') > 0;
-var isEdge = UA && UA.indexOf('edge/') > 0;
-var isAndroid = (UA && UA.indexOf('android') > 0) || (weexPlatform === 'android');
-var isIOS = (UA && /iphone|ipad|ipod|ios/.test(UA)) || (weexPlatform === 'ios');
-var isChrome = UA && /chrome\/\d+/.test(UA) && !isEdge;
-
 // Firefox has a "watch" function on Object.prototype...
-var nativeWatch = ({}).watch;
 
-
-if (inBrowser) {
-  try {
-    var opts = {};
-    Object.defineProperty(opts, 'passive', ({
-      get: function get () {
-        /* istanbul ignore next */
-        
-      }
-    })); // https://github.com/facebook/flow/issues/285
-    window.addEventListener('test-passive', null, opts);
-  } catch (e) {}
-}
 
 // this needs to be lazy-evaled because vue may be required before
 // vue-server-renderer can set VUE_ENV
@@ -267,17 +240,10 @@ var isServerRendering = function () {
   return false
 };
 
-// detect devtools
-var devtools = inBrowser && window.__VUE_DEVTOOLS_GLOBAL_HOOK__;
-
 /* istanbul ignore next */
 function isNative (Ctor) {
   return typeof Ctor === 'function' && /native code/.test(Ctor.toString())
 }
-
-var hasSymbol =
-  typeof Symbol !== 'undefined' && isNative(Symbol) &&
-  typeof Reflect !== 'undefined' && isNative(Reflect.ownKeys);
 
 var _Set;
 /* istanbul ignore if */ // $flow-disable-line
@@ -304,496 +270,16 @@ if (typeof Set !== 'undefined' && isNative(Set)) {
   }());
 }
 
-var ASSET_TYPES = [
-  'component',
-  'directive',
-  'filter'
-];
-
-var LIFECYCLE_HOOKS = [
-  'beforeCreate',
-  'created',
-  'beforeMount',
-  'mounted',
-  'beforeUpdate',
-  'updated',
-  'beforeDestroy',
-  'destroyed',
-  'activated',
-  'deactivated',
-  'errorCaptured'
-];
-
-/*  */
-
-var config = ({
-  /**
-   * Option merge strategies (used in core/util/options)
-   */
-  // $flow-disable-line
-  optionMergeStrategies: Object.create(null),
-
-  /**
-   * Whether to suppress warnings.
-   */
-  silent: false,
-
-  /**
-   * Show production mode tip message on boot?
-   */
-  productionTip: "development" !== 'production',
-
-  /**
-   * Whether to enable devtools
-   */
-  devtools: "development" !== 'production',
-
-  /**
-   * Whether to record perf
-   */
-  performance: false,
-
-  /**
-   * Error handler for watcher errors
-   */
-  errorHandler: null,
-
-  /**
-   * Warn handler for watcher warns
-   */
-  warnHandler: null,
-
-  /**
-   * Ignore certain custom elements
-   */
-  ignoredElements: [],
-
-  /**
-   * Custom user key aliases for v-on
-   */
-  // $flow-disable-line
-  keyCodes: Object.create(null),
-
-  /**
-   * Check if a tag is reserved so that it cannot be registered as a
-   * component. This is platform-dependent and may be overwritten.
-   */
-  isReservedTag: no,
-
-  /**
-   * Check if an attribute is reserved so that it cannot be used as a component
-   * prop. This is platform-dependent and may be overwritten.
-   */
-  isReservedAttr: no,
-
-  /**
-   * Check if a tag is an unknown element.
-   * Platform-dependent.
-   */
-  isUnknownElement: no,
-
-  /**
-   * Get the namespace of an element
-   */
-  getTagNamespace: noop,
-
-  /**
-   * Parse the real tag name for the specific platform.
-   */
-  parsePlatformTagName: identity,
-
-  /**
-   * Check if an attribute must be bound using property, e.g. value
-   * Platform-dependent.
-   */
-  mustUseProp: no,
-
-  /**
-   * Exposed for legacy reasons
-   */
-  _lifecycleHooks: LIFECYCLE_HOOKS
-})
-
 /*  */
 
 var warn = noop;
 
-var generateComponentTrace = (noop); // work around flow check
-var formatComponentName = (noop);
-
-{
-  var hasConsole = typeof console !== 'undefined';
-  var classifyRE = /(?:^|[-_])(\w)/g;
-  var classify = function (str) { return str
-    .replace(classifyRE, function (c) { return c.toUpperCase(); })
-    .replace(/[-_]/g, ''); };
-
-  warn = function (msg, vm) {
-    var trace = vm ? generateComponentTrace(vm) : '';
-
-    if (config.warnHandler) {
-      config.warnHandler.call(null, msg, vm, trace);
-    } else if (hasConsole && (!config.silent)) {
-      console.error(("[Vue warn]: " + msg + trace));
-    }
-  };
-
-  formatComponentName = function (vm, includeFile) {
-    if (vm.$root === vm) {
-      return '<Root>'
-    }
-    var options = typeof vm === 'function' && vm.cid != null
-      ? vm.options
-      : vm._isVue
-        ? vm.$options || vm.constructor.options
-        : vm || {};
-    var name = options.name || options._componentTag;
-    var file = options.__file;
-    if (!name && file) {
-      var match = file.match(/([^/\\]+)\.vue$/);
-      name = match && match[1];
-    }
-
-    return (
-      (name ? ("<" + (classify(name)) + ">") : "<Anonymous>") +
-      (file && includeFile !== false ? (" at " + file) : '')
-    )
-  };
-
-  var repeat = function (str, n) {
-    var res = '';
-    while (n) {
-      if (n % 2 === 1) { res += str; }
-      if (n > 1) { str += str; }
-      n >>= 1;
-    }
-    return res
-  };
-
-  generateComponentTrace = function (vm) {
-    if (vm._isVue && vm.$parent) {
-      var tree = [];
-      var currentRecursiveSequence = 0;
-      while (vm) {
-        if (tree.length > 0) {
-          var last = tree[tree.length - 1];
-          if (last.constructor === vm.constructor) {
-            currentRecursiveSequence++;
-            vm = vm.$parent;
-            continue
-          } else if (currentRecursiveSequence > 0) {
-            tree[tree.length - 1] = [last, currentRecursiveSequence];
-            currentRecursiveSequence = 0;
-          }
-        }
-        tree.push(vm);
-        vm = vm.$parent;
-      }
-      return '\n\nfound in\n\n' + tree
-        .map(function (vm, i) { return ("" + (i === 0 ? '---> ' : repeat(' ', 5 + i * 2)) + (Array.isArray(vm)
-            ? ((formatComponentName(vm[0])) + "... (" + (vm[1]) + " recursive calls)")
-            : formatComponentName(vm))); })
-        .join('\n')
-    } else {
-      return ("\n\n(found in " + (formatComponentName(vm)) + ")")
-    }
-  };
-}
-
-/*  */
-
-/**
- * Option overwriting strategies are functions that handle
- * how to merge a parent option value and a child option
- * value into the final value.
- */
-var strats = config.optionMergeStrategies;
-
-/**
- * Options with restrictions
- */
-{
-  strats.el = strats.propsData = function (parent, child, vm, key) {
-    if (!vm) {
-      warn(
-        "option \"" + key + "\" can only be used during instance " +
-        'creation with the `new` keyword.'
-      );
-    }
-    return defaultStrat(parent, child)
-  };
-}
-
-/**
- * Helper that recursively merges two data objects together.
- */
-function mergeData (to, from) {
-  if (!from) { return to }
-  var key, toVal, fromVal;
-  var keys = Object.keys(from);
-  for (var i = 0; i < keys.length; i++) {
-    key = keys[i];
-    toVal = to[key];
-    fromVal = from[key];
-    if (!hasOwn(to, key)) {
-      set(to, key, fromVal);
-    } else if (isPlainObject(toVal) && isPlainObject(fromVal)) {
-      mergeData(toVal, fromVal);
-    }
-  }
-  return to
-}
-
-/**
- * Data
- */
-function mergeDataOrFn (
-  parentVal,
-  childVal,
-  vm
-) {
-  if (!vm) {
-    // in a Vue.extend merge, both should be functions
-    if (!childVal) {
-      return parentVal
-    }
-    if (!parentVal) {
-      return childVal
-    }
-    // when parentVal & childVal are both present,
-    // we need to return a function that returns the
-    // merged result of both functions... no need to
-    // check if parentVal is a function here because
-    // it has to be a function to pass previous merges.
-    return function mergedDataFn () {
-      return mergeData(
-        typeof childVal === 'function' ? childVal.call(this, this) : childVal,
-        typeof parentVal === 'function' ? parentVal.call(this, this) : parentVal
-      )
-    }
-  } else {
-    return function mergedInstanceDataFn () {
-      // instance merge
-      var instanceData = typeof childVal === 'function'
-        ? childVal.call(vm, vm)
-        : childVal;
-      var defaultData = typeof parentVal === 'function'
-        ? parentVal.call(vm, vm)
-        : parentVal;
-      if (instanceData) {
-        return mergeData(instanceData, defaultData)
-      } else {
-        return defaultData
-      }
-    }
-  }
-}
-
-strats.data = function (
-  parentVal,
-  childVal,
-  vm
-) {
-  if (!vm) {
-    if (childVal && typeof childVal !== 'function') {
-      "development" !== 'production' && warn(
-        'The "data" option should be a function ' +
-        'that returns a per-instance value in component ' +
-        'definitions.',
-        vm
-      );
-
-      return parentVal
-    }
-    return mergeDataOrFn(parentVal, childVal)
-  }
-
-  return mergeDataOrFn(parentVal, childVal, vm)
-};
-
-/**
- * Hooks and props are merged as arrays.
- */
-function mergeHook (
-  parentVal,
-  childVal
-) {
-  return childVal
-    ? parentVal
-      ? parentVal.concat(childVal)
-      : Array.isArray(childVal)
-        ? childVal
-        : [childVal]
-    : parentVal
-}
-
-LIFECYCLE_HOOKS.forEach(function (hook) {
-  strats[hook] = mergeHook;
-});
-
-/**
- * Assets
- *
- * When a vm is present (instance creation), we need to do
- * a three-way merge between constructor options, instance
- * options and parent options.
- */
-function mergeAssets (
-  parentVal,
-  childVal,
-  vm,
-  key
-) {
-  var res = Object.create(parentVal || null);
-  if (childVal) {
-    "development" !== 'production' && assertObjectType(key, childVal, vm);
-    return extend(res, childVal)
-  } else {
-    return res
-  }
-}
-
-ASSET_TYPES.forEach(function (type) {
-  strats[type + 's'] = mergeAssets;
-});
-
-/**
- * Watchers.
- *
- * Watchers hashes should not overwrite one
- * another, so we merge them as arrays.
- */
-strats.watch = function (
-  parentVal,
-  childVal,
-  vm,
-  key
-) {
-  // work around Firefox's Object.prototype.watch...
-  if (parentVal === nativeWatch) { parentVal = undefined; }
-  if (childVal === nativeWatch) { childVal = undefined; }
-  /* istanbul ignore if */
-  if (!childVal) { return Object.create(parentVal || null) }
-  {
-    assertObjectType(key, childVal, vm);
-  }
-  if (!parentVal) { return childVal }
-  var ret = {};
-  extend(ret, parentVal);
-  for (var key$1 in childVal) {
-    var parent = ret[key$1];
-    var child = childVal[key$1];
-    if (parent && !Array.isArray(parent)) {
-      parent = [parent];
-    }
-    ret[key$1] = parent
-      ? parent.concat(child)
-      : Array.isArray(child) ? child : [child];
-  }
-  return ret
-};
-
-/**
- * Other object hashes.
- */
-strats.props =
-strats.methods =
-strats.inject =
-strats.computed = function (
-  parentVal,
-  childVal,
-  vm,
-  key
-) {
-  if (childVal && "development" !== 'production') {
-    assertObjectType(key, childVal, vm);
-  }
-  if (!parentVal) { return childVal }
-  var ret = Object.create(null);
-  extend(ret, parentVal);
-  if (childVal) { extend(ret, childVal); }
-  return ret
-};
-strats.provide = mergeDataOrFn;
-
-/**
- * Default strategy.
- */
-var defaultStrat = function (parentVal, childVal) {
-  return childVal === undefined
-    ? parentVal
-    : childVal
-};
-
-
-
-function assertObjectType (name, value, vm) {
-  if (!isPlainObject(value)) {
-    warn(
-      "Invalid value for option \"" + name + "\": expected an Object, " +
-      "but got " + (toRawType(value)) + ".",
-      vm
-    );
-  }
-}
-
-/**
- * Merge two option objects into a new one.
- * Core utility used in both instantiation and inheritance.
- */
-
-
-/**
- * Resolve an asset.
- * This function is used because child instances need access
- * to assets defined in its ancestor chain.
- */
-
-/*  */
+ // work around flow check
 
 /*  */
 
 function handleError (err, vm, info) {
-  if (vm) {
-    var cur = vm;
-    while ((cur = cur.$parent)) {
-      var hooks = cur.$options.errorCaptured;
-      if (hooks) {
-        for (var i = 0; i < hooks.length; i++) {
-          try {
-            var capture = hooks[i].call(cur, err, vm, info) === false;
-            if (capture) { return }
-          } catch (e) {
-            globalHandleError(e, cur, 'errorCaptured hook');
-          }
-        }
-      }
-    }
-  }
-  globalHandleError(err, vm, info);
-}
-
-function globalHandleError (err, vm, info) {
-  if (config.errorHandler) {
-    try {
-      return config.errorHandler.call(null, err, vm, info)
-    } catch (e) {
-      logError(e, null, 'config.errorHandler');
-    }
-  }
-  logError(err, vm, info);
-}
-
-function logError (err, vm, info) {
-  {
-    warn(("Error in " + info + ": \"" + (err.toString()) + "\""), vm);
-  }
-  /* istanbul ignore else */
-  if ((inBrowser || inWeex) && typeof console !== 'undefined') {
-    console.error(err);
-  } else {
-    throw err
-  }
+  console.log('handleError :: ', err, vm, info);
 }
 
 /*  */
@@ -801,6 +287,7 @@ function logError (err, vm, info) {
 
 var callbacks = [];
 var pending = false;
+var isIOS = false;
 
 function flushCallbacks () {
   pending = false;
@@ -914,26 +401,26 @@ var uid = 0;
  * A dep is an observable that can have multiple
  * directives subscribing to it.
  */
-var Dep = function Dep () {
+var Dep$1 = function Dep () {
   this.id = uid++;
   this.subs = [];
 };
 
-Dep.prototype.addSub = function addSub (sub) {
+Dep$1.prototype.addSub = function addSub (sub) {
   this.subs.push(sub);
 };
 
-Dep.prototype.removeSub = function removeSub (sub) {
+Dep$1.prototype.removeSub = function removeSub (sub) {
   remove(this.subs, sub);
 };
 
-Dep.prototype.depend = function depend () {
-  if (Dep.target) {
-    Dep.target.addDep(this);
+Dep$1.prototype.depend = function depend () {
+  if (Dep$1.target) {
+    Dep$1.target.addDep(this);
   }
 };
 
-Dep.prototype.notify = function notify () {
+Dep$1.prototype.notify = function notify () {
   // stabilize the subscriber list first
   var subs = this.subs.slice();
   for (var i = 0, l = subs.length; i < l; i++) {
@@ -944,16 +431,16 @@ Dep.prototype.notify = function notify () {
 // the current target watcher being evaluated.
 // this is globally unique because there could be only one
 // watcher being evaluated at any time.
-Dep.target = null;
+Dep$1.target = null;
 var targetStack = [];
 
 function pushTarget (_target) {
-  if (Dep.target) { targetStack.push(Dep.target); }
-  Dep.target = _target;
+  if (Dep$1.target) { targetStack.push(Dep$1.target); }
+  Dep$1.target = _target;
 }
 
 function popTarget () {
-  Dep.target = targetStack.pop();
+  Dep$1.target = targetStack.pop();
 }
 
 /*
@@ -962,7 +449,9 @@ function popTarget () {
  */
 
 var arrayProto = Array.prototype;
-var arrayMethods = Object.create(arrayProto);[
+var arrayMethods = Object.create(arrayProto);
+
+var methodsToPatch = [
   'push',
   'pop',
   'shift',
@@ -970,7 +459,12 @@ var arrayMethods = Object.create(arrayProto);[
   'splice',
   'sort',
   'reverse'
-].forEach(function (method) {
+];
+
+/**
+ * Intercept mutating methods and emit events
+ */
+methodsToPatch.forEach(function (method) {
   // cache original method
   var original = arrayProto[method];
   def(arrayMethods, method, function mutator () {
@@ -1018,7 +512,7 @@ var observerState = {
  */
 var Observer = function Observer (value) {
   this.value = value;
-  this.dep = new Dep();
+  this.dep = new Dep$1();
   this.vmCount = 0;
   def(value, '__ob__', this);
   if (Array.isArray(value)) {
@@ -1114,7 +608,7 @@ function defineReactive (
   customSetter,
   shallow
 ) {
-  var dep = new Dep();
+  var dep = new Dep$1();
 
   var property = Object.getOwnPropertyDescriptor(obj, key);
   if (property && property.configurable === false) {
@@ -1131,7 +625,7 @@ function defineReactive (
     configurable: true,
     get: function reactiveGetter () {
       var value = getter ? getter.call(obj) : val;
-      if (Dep.target) {
+      if (Dep$1.target) {
         dep.depend();
         if (childOb) {
           childOb.dep.depend();
@@ -1168,32 +662,7 @@ function defineReactive (
  * triggers change notification if the property doesn't
  * already exist.
  */
-function set (target, key, val) {
-  if (Array.isArray(target) && isValidArrayIndex(key)) {
-    target.length = Math.max(target.length, key);
-    target.splice(key, 1, val);
-    return val
-  }
-  if (key in target && !(key in Object.prototype)) {
-    target[key] = val;
-    return val
-  }
-  var ob = (target).__ob__;
-  if (target._isVue || (ob && ob.vmCount)) {
-    "development" !== 'production' && warn(
-      'Avoid adding reactive properties to a Vue instance or its root $data ' +
-      'at runtime - declare it upfront in the data option.'
-    );
-    return val
-  }
-  if (!ob) {
-    target[key] = val;
-    return val
-  }
-  defineReactive(ob.value, key, val);
-  ob.dep.notify();
-  return val
-}
+
 
 /**
  * Delete a property and trigger change if necessary.
@@ -1254,6 +723,7 @@ function _traverse (val, seen) {
 /*  */
 
 
+
 var MAX_UPDATE_COUNT = 100;
 
 var queue = [];
@@ -1264,12 +734,12 @@ var waiting = false;
 var flushing = false;
 var index = 0;
 
-function activateChildComponent(vm, direct) {}
+function activateChildComponent (vm, direct) { }
 
 /**
  * Reset the scheduler's state.
  */
-function resetSchedulerState() {
+function resetSchedulerState () {
   index = queue.length = activatedChildren.length = 0;
   has = {};
   {
@@ -1281,7 +751,7 @@ function resetSchedulerState() {
 /**
  * Flush both queues and run the watchers.
  */
-function flushSchedulerQueue() {
+function flushSchedulerQueue () {
   flushing = true;
   var watcher, id;
 
@@ -1308,9 +778,9 @@ function flushSchedulerQueue() {
       if (circular[id] > MAX_UPDATE_COUNT) {
         warn(
           'You may have an infinite update loop ' + (
-            watcher.user ?
-            ("in watcher with expression \"" + (watcher.expression) + "\"") :
-            "in a component render function."
+            watcher.user
+              ? ("in watcher with expression \"" + (watcher.expression) + "\"")
+              : "in a component render function."
           ),
           watcher.vm
         );
@@ -1329,14 +799,9 @@ function flushSchedulerQueue() {
   callActivatedHooks(activatedQueue);
   callUpdatedHooks(updatedQueue);
 
-  // devtool hook
-  /* istanbul ignore if */
-  if (devtools && config.devtools) {
-    devtools.emit('flush');
-  }
 }
 
-function callUpdatedHooks(queue) {
+function callUpdatedHooks (queue) {
   var i = queue.length;
   while (i--) {
     var watcher = queue[i];
@@ -1353,10 +818,10 @@ function callUpdatedHooks(queue) {
  */
 
 
-function callActivatedHooks(queue) {
+function callActivatedHooks (queue) {
   for (var i = 0; i < queue.length; i++) {
     queue[i]._inactive = true;
-    activateChildComponent(queue[i], true /* true */ );
+    activateChildComponent(queue[i], true /* true */);
   }
 }
 
@@ -1365,7 +830,7 @@ function callActivatedHooks(queue) {
  * Jobs with duplicate IDs will be skipped unless it's
  * pushed when the queue is being flushed.
  */
-function queueWatcher(watcher) {
+function queueWatcher (watcher) {
   var id = watcher.id;
   if (has[id] == null) {
     has[id] = true;
@@ -1434,12 +899,7 @@ var Watcher = function Watcher (
     this.getter = parsePath(expOrFn);
     if (!this.getter) {
       this.getter = function () {};
-      "development" !== 'production' && warn(
-        "Failed watching path: \"" + expOrFn + "\" " +
-        'Watcher only accepts simple dot-delimited paths. ' +
-        'For full control, use a function instead.',
-        vm
-      );
+      
     }
   }
   this.value = this.lazy
@@ -1599,6 +1059,8 @@ Watcher.prototype.teardown = function teardown () {
   }
 };
 
+/*  */
+
 var sharedPropertyDefinition = {
   enumerable: true,
   configurable: true,
@@ -1606,109 +1068,147 @@ var sharedPropertyDefinition = {
   set: noop
 };
 
+// var computed = {}
+
 function proxy(target, sourceKey, key) {
-  sharedPropertyDefinition.get = function proxyGetter() {
+  sharedPropertyDefinition.get = function() {
     return this[sourceKey][key]
   };
-  sharedPropertyDefinition.set = function proxySetter(val) {
+  sharedPropertyDefinition.set = function(val) {
     this[sourceKey][key] = val;
   };
   Object.defineProperty(target, key, sharedPropertyDefinition);
 }
 
-var __innerUpdate = function (path, newval, oldval) {
-  var obj;
-
-  var wxpath = path.replace(/\.(\d)\./g, '[$1].');
-  console.log('page._update : ', path, wxpath, newval, oldval);
-  this.setData(( obj = {}, obj[("" + wxpath)] = newval, obj));
-  if (this._update) {
-    // 页面内函数
-    this._update.call(this, path, newval, oldval);
-  }
-};
-
-function _watchData(target, data, preKeyPath) {
+function _watchData(vm, data, preKeyPath) {
   if ( preKeyPath === void 0 ) preKeyPath = '';
 
   if (Array.isArray(data)) {
     for (var i = 0, l = data.length; i < l; i++) {
-      _watchData(target, data[i], preKeyPath + i + '.');
+      _watchData(vm, data[i], preKeyPath + i + '.');
     }
   } else {
-    var updater = __innerUpdate.bind(target);
-
     var keys = Object.keys(data);
     for (var i$1 = 0; i$1 < keys.length; i$1++) {
       var pk = preKeyPath + keys[i$1];
+
       if (!isReserved(pk)) {
         // console.log('watching : ', pk)
-        proxy(target, "__data", pk);
-        new Watcher(target, pk, updater);
+        // proxy(vm, `_data`, pk)
+        new Watcher(vm, pk, vm._renderDelegate);
 
         var _data = data[keys[i$1]];
         if ((Array.isArray(_data) || isPlainObject(_data)) &&
           Object.isExtensible(_data)) {
-          _watchData(target, _data, pk + '.');
+          _watchData(vm, _data, pk + '.');
         }
       }
     }
   }
 }
 
+var VM = function VM(target) {
+  var this$1 = this;
+
+  this._watchers = [];
+  this._computedWatchers = Object.create(null);
+
+  this._render = target._update;
+
+  var props = this._data = target.props || {};
+  Object.keys(props).forEach(function (key) {
+    if (!isReserved(key)) {
+      proxy(this$1, "_data", key);
+    }
+  });
+  makeObservable(props, false);
+
+  _watchData(this, props);
+};
+
+VM.prototype._renderDelegate = function _renderDelegate (path, newval, oldval) {
+  var wxpath = path.replace(/\.(\d)\./g, '[$1].');
+  this._render(wxpath, newval, oldval);
+};
+
+VM.prototype.teardown = function teardown () {
+    var this$1 = this;
+
+  this._watchers.forEach(function (w) {
+    w.teardown();
+  });
+  Object.keys(this._computedWatchers).forEach(function (k) {
+    this$1._computedWatchers[k].teardown();
+  });
+  this._watchers = [];
+  this._data = {};
+  this._computedWatchers = {};
+};
+
 var observe$$1 = function(page) {
 
   var oldOnLoad = page.onLoad;
   var oldOnUnload = page.onUnload;
 
-  page._watchers = [];
-
   page.onLoad = function() {
-    this.$reWatch();
+    this._vm = new VM(this);
 
     if (oldOnLoad) {
       oldOnLoad.apply(this, arguments);
     }
   };
 
+  if (!page._update) {
+    page._update = function(wxpath, newval, oldval) {
+      var obj;
+
+      this.setData(( obj = {}, obj[("" + wxpath)] = newval, obj[(wxpath + ".oldval")] = oldval, obj));
+    };
+  }
+
   page.onUnload = function() {
-    this.__clswc();
+    if (this._vm) {
+      this._vm.teardown();
+    }
 
     if (oldOnUnload) {
       oldOnUnload.apply(this, arguments);
     }
   };
 
-  page.__clswc = function() {
-    var this$1 = this;
-
-    var i = this._watchers.length;
-    while (i--) {
-      // console.log('page.__clswc : teardown ', i)
-      this$1._watchers[i].teardown();
-    }
-
-    this._watchers = [];
-  };
-
-  page.$reWatch = function () {
-    this.__clswc();
-
-    var props = this.__data = this.props || {};
-
-    var prevShouldConvert = observerState.shouldConvert;
-    observerState.shouldConvert = true;
-    observe$1(props, true);
-    observerState.shouldConvert = prevShouldConvert;
-
-    _watchData(this, props);
-  };
-
   return page
 };
 
-exports.Watcher = Watcher;
+var makeObservable = function(obj, asRootData) {
+  if ( asRootData === void 0 ) asRootData = true;
+
+  if (hasOwn(obj, '__ob__')) {
+    return obj
+  }
+
+  var _ob = observe$1(obj, asRootData);
+
+  var delegate = Object.create(null);
+  Object.keys(obj).forEach(function (k) {
+    Object.defineProperty(delegate, k, {
+      enumerable: true,
+      configurable: true,
+      get: function() {
+        return obj[k]
+      },
+      set: function(val) {
+        obj[k] = val;
+      }
+    });
+  });
+
+  // console.log('makeObservable obj = ', obj, delegate)
+
+  return delegate
+};
+
 exports.observe = observe$$1;
+exports.makeObservable = makeObservable;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

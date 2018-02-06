@@ -3,10 +3,11 @@
 
 import { noop } from 'shared/util'
 import { handleError } from './error'
-import { isIOS, isNative } from './env'
+import { isNative } from './env'
 
 const callbacks = []
 let pending = false
+let isIOS = false
 
 function flushCallbacks () {
   pending = false

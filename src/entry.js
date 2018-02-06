@@ -1,7 +1,8 @@
-import { observe as vueObserve, observerState, set } from 'core/observer/index'
+/* @flow */
+
+import { observe as vueObserve, observerState } from 'core/observer/index'
 import Watcher from 'core/observer/watcher'
-import { noop } from 'shared/util'
-import { handleError, isReserved, isPlainObject } from 'core/util/index'
+import { noop, hasOwn, isReserved, isPlainObject } from 'core/util/index'
 
 const sharedPropertyDefinition = {
   enumerable: true,
@@ -10,51 +11,119 @@ const sharedPropertyDefinition = {
   set: noop
 }
 
+const computedWatcherOptions = { lazy: true }
+
+// var computed = {}
+
 function proxy(target, sourceKey, key) {
-  sharedPropertyDefinition.get = function proxyGetter() {
+  sharedPropertyDefinition.get = function() {
     return this[sourceKey][key]
   }
-  sharedPropertyDefinition.set = function proxySetter(val) {
+  sharedPropertyDefinition.set = function(val) {
     this[sourceKey][key] = val
   }
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
-var __innerUpdate = function (path, newval, oldval) {
-  let wxpath = path.replace(/\.(\d)\./g, '[$1].')
-  console.log('page._update : ', path, wxpath, newval, oldval)
-  this.setData({
-    [`${wxpath}`]: newval
-  })
-  if (this._update) {
-    // 页面内函数
-    this._update.call(this, path, newval, oldval)
-  }
-}
-
-function _watchData(target, data, preKeyPath = '') {
+function _watchData(vm, data, preKeyPath = '') {
   if (Array.isArray(data)) {
     for (let i = 0, l = data.length; i < l; i++) {
-      _watchData(target, data[i], preKeyPath + i + '.')
+      _watchData(vm, data[i], preKeyPath + i + '.')
     }
   } else {
-    const updater = __innerUpdate.bind(target)
-
     const keys = Object.keys(data)
     for (let i = 0; i < keys.length; i++) {
       let pk = preKeyPath + keys[i]
+
       if (!isReserved(pk)) {
         // console.log('watching : ', pk)
-        proxy(target, `__data`, pk)
-        new Watcher(target, pk, updater)
+        // proxy(vm, `_data`, pk)
+        new Watcher(vm, pk, vm._renderDelegate)
 
         let _data = data[keys[i]]
         if ((Array.isArray(_data) || isPlainObject(_data)) &&
           Object.isExtensible(_data)) {
-          _watchData(target, _data, pk + '.')
+          _watchData(vm, _data, pk + '.')
         }
       }
     }
+  }
+}
+
+function defineComputed(
+  target: any,
+  key: string,
+  userDef: Object | Function
+) {
+  const shouldCache = true
+  if (typeof userDef === 'function') {
+    sharedPropertyDefinition.get = shouldCache ?
+      createComputedGetter(key) :
+      userDef
+    sharedPropertyDefinition.set = noop
+  } else {
+    sharedPropertyDefinition.get = userDef.get ?
+      shouldCache && userDef.cache !== false ?
+      createComputedGetter(key) :
+      userDef.get :
+      noop
+    sharedPropertyDefinition.set = userDef.set ?
+      userDef.set :
+      noop
+  }
+
+  Object.defineProperty(target, key, sharedPropertyDefinition)
+}
+
+function createComputedGetter(key) {
+  return function computedGetter() {
+    const watcher = this._computedWatchers && this._computedWatchers[key]
+    if (watcher) {
+      if (watcher.dirty) {
+        watcher.evaluate()
+      }
+      if (Dep.target) {
+        watcher.depend()
+      }
+      return watcher.value
+    }
+  }
+}
+
+
+class VM {
+  constructor(target) {
+    this._watchers = []
+    this._computedWatchers = Object.create(null)
+
+    this._render = target._update
+
+    let props = this._data = target.props || {}
+    Object.keys(props).forEach(key => {
+      if (!isReserved(key)) {
+        proxy(this, `_data`, key)
+      }
+    })
+    makeObservable(props, false)
+
+    _watchData(this, props)
+  }
+
+  _renderDelegate(path, newval, oldval) {
+    let wxpath = path.replace(/\.(\d)\./g, '[$1].')
+    this._render(wxpath, newval, oldval)
+  }
+
+  teardown() {
+    this._watchers.forEach(w => {
+      w.teardown()
+    })
+    Object.keys(this._computedWatchers).forEach(k => {
+      this._computedWatchers[k].teardown()
+    })
+    this._watchers = []
+    this._data = {}
+    this._computedWatchers = {}
   }
 }
 
@@ -63,48 +132,60 @@ var observe = function(page) {
   var oldOnLoad = page.onLoad
   var oldOnUnload = page.onUnload
 
-  page._watchers = []
-
   page.onLoad = function() {
-    this.$reWatch()
+    this._vm = new VM(this)
 
     if (oldOnLoad) {
       oldOnLoad.apply(this, arguments)
     }
   }
 
+  if (!page._update) {
+    page._update = function(wxpath, newval, oldval) {
+      this.setData({
+        [`${wxpath}`]: newval,
+        [`${wxpath}.oldval`]: oldval
+      })
+    }
+  }
+
   page.onUnload = function() {
-    this.__clswc()
+    if (this._vm) {
+      this._vm.teardown()
+    }
 
     if (oldOnUnload) {
       oldOnUnload.apply(this, arguments)
     }
   }
 
-  page.__clswc = function() {
-    let i = this._watchers.length
-    while (i--) {
-      // console.log('page.__clswc : teardown ', i)
-      this._watchers[i].teardown()
-    }
-
-    this._watchers = []
-  }
-
-  page.$reWatch = function () {
-    this.__clswc()
-
-    var props = this.__data = this.props || {}
-
-    const prevShouldConvert = observerState.shouldConvert
-    observerState.shouldConvert = true
-    vueObserve(props, true)
-    observerState.shouldConvert = prevShouldConvert
-
-    _watchData(this, props)
-  }
-
   return page
 }
 
-export { Watcher, observe }
+var makeObservable = function(obj: any, asRootData: ? boolean = true) {
+  if (hasOwn(obj, '__ob__')) {
+    return obj
+  }
+
+  var _ob = vueObserve(obj, asRootData)
+
+  var delegate = Object.create(null)
+  Object.keys(obj).forEach(k => {
+    Object.defineProperty(delegate, k, {
+      enumerable: true,
+      configurable: true,
+      get: function() {
+        return obj[k]
+      },
+      set: function(val) {
+        obj[k] = val
+      }
+    })
+  })
+
+  // console.log('makeObservable obj = ', obj, delegate)
+
+  return delegate
+}
+
+export { observe, makeObservable }

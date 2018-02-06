@@ -1,34 +1,29 @@
 /* @flow */
 
 import type Watcher from './watcher'
-import config from '../config'
 
 import {
   warn,
-  nextTick,
-  devtools
+  nextTick
 } from '../util/index'
 
 export const MAX_UPDATE_COUNT = 100
 
-const queue: Array < Watcher > = []
-const activatedChildren: Array < Component > = []
-let has: {
-  [key: number]: ? true } = {}
-let circular: {
-  [key: number]: number } = {}
+const queue: Array<Watcher> = []
+const activatedChildren: Array<Component> = []
+let has: { [key: number]: ?true } = {}
+let circular: { [key: number]: number } = {}
 let waiting = false
 let flushing = false
 let index = 0
 
-function callHook(vm, hook) {}
-
-function activateChildComponent(vm, direct) {}
+function callHook (vm: Component, hook: string) { }
+function activateChildComponent (vm: Component, direct?: boolean) { }
 
 /**
  * Reset the scheduler's state.
  */
-function resetSchedulerState() {
+function resetSchedulerState () {
   index = queue.length = activatedChildren.length = 0
   has = {}
   if (process.env.NODE_ENV !== 'production') {
@@ -40,7 +35,7 @@ function resetSchedulerState() {
 /**
  * Flush both queues and run the watchers.
  */
-function flushSchedulerQueue() {
+function flushSchedulerQueue () {
   flushing = true
   let watcher, id
 
@@ -67,9 +62,9 @@ function flushSchedulerQueue() {
       if (circular[id] > MAX_UPDATE_COUNT) {
         warn(
           'You may have an infinite update loop ' + (
-            watcher.user ?
-            `in watcher with expression "${watcher.expression}"` :
-            `in a component render function.`
+            watcher.user
+              ? `in watcher with expression "${watcher.expression}"`
+              : `in a component render function.`
           ),
           watcher.vm
         )
@@ -88,14 +83,9 @@ function flushSchedulerQueue() {
   callActivatedHooks(activatedQueue)
   callUpdatedHooks(updatedQueue)
 
-  // devtool hook
-  /* istanbul ignore if */
-  if (devtools && config.devtools) {
-    devtools.emit('flush')
-  }
 }
 
-function callUpdatedHooks(queue) {
+function callUpdatedHooks (queue) {
   let i = queue.length
   while (i--) {
     const watcher = queue[i]
@@ -110,17 +100,17 @@ function callUpdatedHooks(queue) {
  * Queue a kept-alive component that was activated during patch.
  * The queue will be processed after the entire tree has been patched.
  */
-export function queueActivatedComponent(vm: Component) {
+export function queueActivatedComponent (vm: Component) {
   // setting _inactive to false here so that a render function can
   // rely on checking whether it's in an inactive tree (e.g. router-view)
   vm._inactive = false
   activatedChildren.push(vm)
 }
 
-function callActivatedHooks(queue) {
+function callActivatedHooks (queue) {
   for (let i = 0; i < queue.length; i++) {
     queue[i]._inactive = true
-    activateChildComponent(queue[i], true /* true */ )
+    activateChildComponent(queue[i], true /* true */)
   }
 }
 
@@ -129,7 +119,7 @@ function callActivatedHooks(queue) {
  * Jobs with duplicate IDs will be skipped unless it's
  * pushed when the queue is being flushed.
  */
-export function queueWatcher(watcher: Watcher) {
+export function queueWatcher (watcher: Watcher) {
   const id = watcher.id
   if (has[id] == null) {
     has[id] = true

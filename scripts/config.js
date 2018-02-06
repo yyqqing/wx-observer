@@ -6,11 +6,24 @@ const replace = require('rollup-plugin-replace')
 const node = require('rollup-plugin-node-resolve')
 const flow = require('rollup-plugin-flow-no-whitespace')
 const version = process.env.VERSION || require('../package.json').version
+const weexVersion = 0
 
-const banner =''
+const banner =
+  '/*!\n' +
+  ' * WxObserver.js v' + version + '\n' +
+  ' * (c) 2014-' + new Date().getFullYear() + ' yyqqing\n' +
+  ' * Released under the MIT License.\n' +
+  ' */'
 
 const aliases = require('./alias')
-const resolve = p => path.resolve(__dirname, '../', p)
+const resolve = p => {
+  const base = p.split('/')[0]
+  if (aliases[base]) {
+    return path.resolve(aliases[base], p.slice(base.length + 1))
+  } else {
+    return path.resolve(__dirname, '../', p)
+  }
+}
 
 const builds = {
   // runtime-only build (Browser)
@@ -39,7 +52,7 @@ function genConfig (name) {
     plugins: [
       replace({
         __WEEX__: !!opts.weex,
-        __WEEX_VERSION__: 0,
+        __WEEX_VERSION__: weexVersion,
         __VERSION__: version
       }),
       flow(),
