@@ -1,15 +1,16 @@
 const observer = require('../observer/observer.js')
 
-var observedObj = observer.makeObservable({
+var obj = {
   prop1: 'prop1...',
   prop2: true,
   prop3: 1,
-  prop4: [{ 'p1': 'aaa', p2: 'bbbb', p3: 'cccc' }],
+  prop4: [{ 'p1': 'aaa', p2: 'bbbb', p3: 'cccc' },
+  { 'p11': 'aaa11', p22: 'bbbb22', p33: 'cccc33' }],
 
   // 计算属性
   get prop5() {
     return 'prop5 = ' + this.prop1
   }
-})
+}
 
-module.exports = observedObj
+module.exports = observer.makeObservable(obj)

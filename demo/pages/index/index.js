@@ -4,6 +4,7 @@ const app = getApp()
 
 const observer = require('../../observer/observer.js')
 var model = require('../../utils/model.js')
+console.log('before Page : ', model)
 
 Page(observer.observe({
   props: {
@@ -36,9 +37,9 @@ Page(observer.observe({
     let val = arr[Math.floor(Math.random() * arr.length)]
     console.log('prop = ', prop, model)
     if (prop == 'prop4') {
-      model.prop4[0].p1 = 'changed ' + val
+      this.props.model.prop4[0].p1 = 'changed ' + val
     } else {
-      this.props.model[prop] = 'changed ' + val
+      model[prop] = 'changed ' + val
     }
   }
 }))

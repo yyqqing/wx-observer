@@ -1,8 +1,9 @@
 /* @flow */
 
 import { observe as vueObserve } from 'core/observer/index'
+import Dep from 'core/observer/dep'
 import Watcher from 'core/observer/watcher'
-import { noop, hasOwn, isReserved, isPlainObject } from 'core/util/index'
+import { noop, hasOwn, def, isReserved, isPlainObject } from 'core/util/index'
 
 const sharedPropertyDefinition = {
   enumerable: true,
@@ -12,6 +13,8 @@ const sharedPropertyDefinition = {
 }
 
 const computedWatcherOptions = { lazy: true }
+
+var computed = {}
 
 function proxy(target, sourceKey, key) {
   sharedPropertyDefinition.get = function() {
@@ -30,11 +33,21 @@ function _watchData(vm, data, preKeyPath = '') {
     }
   } else {
     const keys = Object.keys(data)
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0, l = keys.length; i < l; i++) {
       let pk = preKeyPath + keys[i]
 
       if (!isReserved(pk)) {
-        new Watcher(vm, pk, vm._renderDelegate)
+        // proxy(vm, `_data`, pk)
+
+        let pd = computed[keys[i]]
+        if (pd && pd.get) {
+          console.log('_watchComputed key : ', pk, pd)
+          vm._computedWatchers[pk] = new Watcher(vm, pd.get, vm._renderDelegate, computedWatcherOptions)
+          defineComputed(vm, pk)
+        } else {
+          console.log('_watchData key : ', pk)
+          new Watcher(vm, pk, vm._renderDelegate)
+        }
 
         let _data = data[keys[i]]
         if ((Array.isArray(_data) || isPlainObject(_data)) && Object.isExtensible(_data)) {
@@ -45,24 +58,53 @@ function _watchData(vm, data, preKeyPath = '') {
   }
 }
 
+function defineComputed (target: any, key: string) {
+  sharedPropertyDefinition.get = function computedGetter () {
+    const watcher = this._computedWatchers && this._computedWatchers[key]
+    if (watcher) {
+      if (watcher.dirty) {
+        watcher.evaluate()
+      }
+      if (Dep.target) {
+        watcher.depend()
+      }
+      return watcher.value
+    }
+  }
+
+  Object.defineProperty(target, key, sharedPropertyDefinition)
+}
+
 class VM {
-  constructor(target) {
+  constructor(page) {
     this._watchers = []
-    this._computedWatchers = {}
+    this._computedWatchers = Object.create(null)
 
-    this._render = target._update
+    this._render = page._update
 
-    let props = this._data = target.props || {}
-    Object.keys(props).forEach(key => {
+    let data = this._data = page.props || {}
+    console.log('VM.constructor 1 data = ', data)
+    Object.keys(data).forEach(key => {
+      // first setData
+      page.setData({
+        [`${key}`]: data[key]
+      })
+
       if (!isReserved(key)) {
-        proxy(this, `_data`, key)
-        // init setData
-        this._render(key, props[key], props[key])
+        let pd = Object.getOwnPropertyDescriptor(data, key)
+        if (pd.get) {
+          computed[key] = pd
+          this._computedWatchers[key] = new Watcher(this, pd.get || noop, noop, computedWatcherOptions)
+          defineComputed(this, key)
+        } else {
+          proxy(this, '_data', key)
+        }
       }
     })
-    makeObservable(props, false)
+    vueObserve(data)
+    console.log('VM.constructor 2 data = ', data)
 
-    _watchData(this, props)
+    _watchData(this, data)
   }
 
   _renderDelegate(path, newval, oldval) {
@@ -74,12 +116,8 @@ class VM {
     this._watchers.forEach(w => {
       w.teardown()
     })
-    Object.keys(this._computedWatchers).forEach(k => {
-      this._computedWatchers[k].teardown()
-    })
     this._watchers = []
     this._data = {}
-    this._computedWatchers = {}
   }
 }
 
@@ -89,6 +127,7 @@ var observe = function(page) {
   var oldOnUnload = page.onUnload
 
   if (!page._update) {
+    // set default render
     page._update = function(wxpath, newval, oldval) {
       console.warn('(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = ', wxpath, '\n    newval = ', newval, '\n    oldval = ', oldval)
       this.setData({
@@ -121,30 +160,32 @@ var observe = function(page) {
   return page
 }
 
-var makeObservable = function(obj: any, asRootData: ? boolean = true) {
-  if (hasOwn(obj, '__ob__')) {
-    return obj
-  }
-
-  var _ob = vueObserve(obj, asRootData)
-
-  var delegate = Object.create(null)
-  Object.keys(obj).forEach(k => {
-    Object.defineProperty(delegate, k, {
-      enumerable: true,
-      configurable: true,
-      get: function() {
-        return obj[k]
-      },
-      set: function(val) {
-        obj[k] = val
+class Store {
+  constructor(obj) {
+    this._watchers = []
+    this._computedWatchers = Object.create(null)
+    let data = this._data = obj || {}
+    Object.keys(data).forEach(k => {
+      let pd = Object.getOwnPropertyDescriptor(data, k)
+      if (pd.get) {
+        this._computedWatchers[k] = new Watcher(this, pd.get || noop, noop, computedWatcherOptions)
+        defineComputed(this, k)
+      } else {
+        proxy(this, '_data', k)
       }
     })
-  })
 
-  // console.log('makeObservable obj = ', obj, delegate)
+    vueObserve(this, true)
 
-  return delegate
+    // Object.keys(data).forEach(k => {
+    //   proxy(this, '_data', k)
+    // })
+  }
+}
+
+var makeObservable = function(obj: any) {
+  // vueObserve(obj, true)
+  return new Store(obj)
 }
 
 export { observe, makeObservable }
