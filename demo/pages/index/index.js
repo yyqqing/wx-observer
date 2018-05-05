@@ -26,7 +26,7 @@ Page(observer.observe({
   },
 
   onLoad: function () {
-    console.log('pages/index/index : onLoad = ', this, model)
+    console.log('pages/index/index : onLoad = ', this, model, this.data)
   },
 
   btntap(e) {

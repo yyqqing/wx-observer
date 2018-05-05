@@ -133,9 +133,35 @@ function hasOwn (obj, key) {
 
 
 /**
- * Simple bind, faster than native
+ * Simple bind polyfill for environments that do not support it... e.g.
+ * PhantomJS 1.x. Technically we don't need this anymore since native bind is
+ * now more performant in most browsers, but removing it would be breaking for
+ * code that was able to run in PhantomJS 1.x, so this must be kept for
+ * backwards compatibility.
  */
 
+/* istanbul ignore next */
+function polyfillBind (fn, ctx) {
+  function boundFn (a) {
+    var l = arguments.length;
+    return l
+      ? l > 1
+        ? fn.apply(ctx, arguments)
+        : fn.call(ctx, a)
+      : fn.call(ctx)
+  }
+
+  boundFn._length = fn.length;
+  return boundFn
+}
+
+function nativeBind (fn, ctx) {
+  return fn.bind(ctx)
+}
+
+var bind = Function.prototype.bind
+  ? nativeBind
+  : polyfillBind;
 
 /**
  * Convert an Array-like object to a real Array.
@@ -298,19 +324,19 @@ function flushCallbacks () {
   }
 }
 
-// Here we have async deferring wrappers using both micro and macro tasks.
-// In < 2.4 we used micro tasks everywhere, but there are some scenarios where
-// micro tasks have too high a priority and fires in between supposedly
+// Here we have async deferring wrappers using both microtasks and (macro) tasks.
+// In < 2.4 we used microtasks everywhere, but there are some scenarios where
+// microtasks have too high a priority and fire in between supposedly
 // sequential events (e.g. #4521, #6690) or even between bubbling of the same
-// event (#6566). However, using macro tasks everywhere also has subtle problems
+// event (#6566). However, using (macro) tasks everywhere also has subtle problems
 // when state is changed right before repaint (e.g. #6813, out-in transitions).
-// Here we use micro task by default, but expose a way to force macro task when
+// Here we use microtask by default, but expose a way to force (macro) task when
 // needed (e.g. in event handlers attached by v-on).
 var microTimerFunc;
 var macroTimerFunc;
 var useMacroTask = false;
 
-// Determine (macro) Task defer implementation.
+// Determine (macro) task defer implementation.
 // Technically setImmediate should be the ideal choice, but it's only available
 // in IE. The only polyfill that consistently queues the callback after all DOM
 // events triggered in the same loop is by using MessageChannel.
@@ -337,7 +363,7 @@ if (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
   };
 }
 
-// Determine MicroTask defer implementation.
+// Determine microtask defer implementation.
 /* istanbul ignore next, $flow-disable-line */
 if (typeof Promise !== 'undefined' && isNative(Promise)) {
   var p = Promise.resolve();
@@ -357,7 +383,7 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 
 /**
  * Wrap a function so that if any code inside triggers state change,
- * the changes are queued using a Task instead of a MicroTask.
+ * the changes are queued using a (macro) task instead of a microtask.
  */
 
 
@@ -495,20 +521,18 @@ methodsToPatch.forEach(function (method) {
 var arrayKeys = Object.getOwnPropertyNames(arrayMethods);
 
 /**
- * By default, when a reactive property is set, the new value is
- * also converted to become reactive. However when passing down props,
- * we don't want to force conversion because the value may be a nested value
- * under a frozen data structure. Converting it would defeat the optimization.
+ * In some cases we may want to disable observation inside a component's
+ * update computation.
  */
-var observerState = {
-  shouldConvert: true
-};
+var shouldObserve = true;
+
+
 
 /**
- * Observer class that are attached to each observed
- * object. Once attached, the observer converts target
+ * Observer class that is attached to each observed
+ * object. Once attached, the observer converts the target
  * object's property keys into getter/setters that
- * collect dependencies and dispatches updates.
+ * collect dependencies and dispatch updates.
  */
 var Observer = function Observer (value) {
   this.value = value;
@@ -534,7 +558,7 @@ var Observer = function Observer (value) {
 Observer.prototype.walk = function walk (obj) {
   var keys = Object.keys(obj);
   for (var i = 0; i < keys.length; i++) {
-    defineReactive(obj, keys[i], obj[keys[i]]);
+    defineReactive(obj, keys[i]);
   }
 };
 
@@ -584,7 +608,7 @@ function observe$1 (value, asRootData) {
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
     ob = value.__ob__;
   } else if (
-    observerState.shouldConvert &&
+    shouldObserve &&
     !isServerRendering() &&
     (Array.isArray(value) || isPlainObject(value)) &&
     Object.isExtensible(value) &&
@@ -618,6 +642,9 @@ function defineReactive (
   // cater for pre-defined getter/setters
   var getter = property && property.get;
   var setter = property && property.set;
+  if ((!getter || setter) && arguments.length === 2) {
+    val = obj[key];
+  }
 
   var childOb = !shallow && observe$1(val);
   Object.defineProperty(obj, key, {
@@ -769,6 +796,9 @@ function flushSchedulerQueue () {
   // as we run existing watchers
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index];
+    if (watcher.before) {
+      watcher.before();
+    }
     id = watcher.id;
     has[id] = null;
     watcher.run();
@@ -878,20 +908,21 @@ var Watcher = function Watcher (
   if (options) {
     this.deep = !!options.deep;
     this.user = !!options.user;
-    this.lazy = !!options.lazy;
+    this.computed = !!options.computed;
     this.sync = !!options.sync;
+    this.before = options.before;
   } else {
-    this.deep = this.user = this.lazy = this.sync = false;
+    this.deep = this.user = this.computed = this.sync = false;
   }
   this.cb = cb;
   this.id = ++uid$1; // uid for batching
   this.active = true;
-  this.dirty = this.lazy; // for lazy watchers
+  this.dirty = this.computed; // for computed watchers
   this.deps = [];
   this.newDeps = [];
   this.depIds = new _Set();
   this.newDepIds = new _Set();
-  this.expression = expOrFn.toString();
+  this.expression =expOrFn.toString();
   // parse expression for getter
   if (typeof expOrFn === 'function') {
     this.getter = expOrFn;
@@ -899,12 +930,14 @@ var Watcher = function Watcher (
     this.getter = parsePath(expOrFn);
     if (!this.getter) {
       this.getter = function () {};
-      
     }
   }
-  this.value = this.lazy
-    ? undefined
-    : this.get();
+  if (this.computed) {
+    this.value = undefined;
+    this.dep = new Dep();
+  } else {
+    this.value = this.get();
+  }
 };
 
 /**
@@ -976,9 +1009,27 @@ Watcher.prototype.cleanupDeps = function cleanupDeps () {
  * Will be called when a dependency changes.
  */
 Watcher.prototype.update = function update () {
+    var this$1 = this;
+
   /* istanbul ignore else */
-  if (this.lazy) {
-    this.dirty = true;
+  if (this.computed) {
+    // A computed property watcher has two modes: lazy and activated.
+    // It initializes as lazy by default, and only becomes activated when
+    // it is depended on by at least one subscriber, which is typically
+    // another computed property or a component's render function.
+    if (this.dep.subs.length === 0) {
+      // In lazy mode, we don't want to perform computations until necessary,
+      // so we simply mark the watcher as dirty. The actual computation is
+      // performed just-in-time in this.evaluate() when the computed property
+      // is accessed.
+      this.dirty = true;
+    } else {
+      // In activated mode, we want to proactively perform the computation
+      // but only notify our subscribers when the value has indeed changed.
+      this.getAndInvoke(function () {
+        this$1.dep.notify();
+      });
+    }
   } else if (this.sync) {
     this.run();
   } else {
@@ -992,49 +1043,54 @@ Watcher.prototype.update = function update () {
  */
 Watcher.prototype.run = function run () {
   if (this.active) {
-    var value = this.get();
-    if (
-      value !== this.value ||
-      // Deep watchers and watchers on Object/Arrays should fire even
-      // when the value is the same, because the value may
-      // have mutated.
-      isObject(value) ||
-      this.deep
-    ) {
-      // set new value
-      var oldValue = this.value;
-      this.value = value;
-      if (this.user) {
-        try {
-          this.cb.call(this.vm, this.expression, value, oldValue);
-        } catch (e) {
-          handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
-        }
-      } else {
-        this.cb.call(this.vm, this.expression, value, oldValue);
+    this.getAndInvoke(this.cb);
+  }
+};
+
+Watcher.prototype.getAndInvoke = function getAndInvoke (cb) {
+  var value = this.get();
+  if (
+    value !== this.value ||
+    // Deep watchers and watchers on Object/Arrays should fire even
+    // when the value is the same, because the value may
+    // have mutated.
+    isObject(value) ||
+    this.deep
+  ) {
+    // set new value
+    var oldValue = this.value;
+    this.value = value;
+    this.dirty = false;
+    if (this.user) {
+      try {
+        cb.call(this.vm, this.expression, value, oldValue);
+      } catch (e) {
+        handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
       }
+    } else {
+      cb.call(this.vm, this.expression, value, oldValue);
     }
   }
 };
 
 /**
- * Evaluate the value of the watcher.
- * This only gets called for lazy watchers.
+ * Evaluate and return the value of the watcher.
+ * This only gets called for computed property watchers.
  */
 Watcher.prototype.evaluate = function evaluate () {
-  this.value = this.get();
-  this.dirty = false;
+  if (this.dirty) {
+    this.value = this.get();
+    this.dirty = false;
+  }
+  return this.value
 };
 
 /**
- * Depend on all deps collected by this watcher.
+ * Depend on this watcher. Only for computed property watchers.
  */
 Watcher.prototype.depend = function depend () {
-    var this$1 = this;
-
-  var i = this.deps.length;
-  while (i--) {
-    this$1.deps[i].depend();
+  if (this.dep && Dep.target) {
+    this.dep.depend();
   }
 };
 
@@ -1118,7 +1174,7 @@ var VM = function VM(target) {
       this$1._render(key, props[key], props[key]);
     }
   });
-  makeObservable(props, false);
+  makeObservable(props);
 
   _watchData(this, props);
 };
@@ -1188,7 +1244,8 @@ var makeObservable = function(obj, asRootData) {
     return obj
   }
 
-  var _ob = observe$1(obj, asRootData);
+  observe$1(obj, asRootData);
+  // return obj
 
   var delegate = Object.create(null);
   Object.keys(obj).forEach(function (k) {

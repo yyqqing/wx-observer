@@ -60,7 +60,7 @@ class VM {
         this._render(key, props[key], props[key])
       }
     })
-    makeObservable(props, false)
+    makeObservable(props)
 
     _watchData(this, props)
   }
@@ -126,7 +126,8 @@ var makeObservable = function(obj: any, asRootData: ? boolean = true) {
     return obj
   }
 
-  var _ob = vueObserve(obj, asRootData)
+  vueObserve(obj, asRootData)
+  // return obj
 
   var delegate = Object.create(null)
   Object.keys(obj).forEach(k => {
