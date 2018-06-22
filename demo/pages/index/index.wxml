@@ -1,11 +1,15 @@
 <!--index.wxml-->
 <view class="container">
-  <view>Path: {{ path }}</view>
-  <view>OldVal: {{ oldval }}</view>
-  <view>NewVal: {{ newval }}</view>
+  <view>p1: {{ prop1 }}</view>
+  <view>p2: {{ prop2 }}</view>
+  <view>p3: {{ prop3 }}</view>
+  <view>p4: {{ prop4[0].p1 }}</view>
+  <view>p6: {{ prop6 }}</view>
+  <view>p7: {{ prop7 }}</view>
+  <view>p8: {{ p4idx }} - {{ prop4[p4idx].p1 }}</view>
   <view>-------------</view>
-  <view>model.prop1: {{ model.prop1 }}</view>
-  <view>model.prop5: {{ model.prop5 }}</view>
+  <view>model.prop1: {{ prop1 }}</view>
+  <view>model.prop5: {{ prop5 }}</view>
 
   <button bindtap='btntap'>change</button>
 </view>

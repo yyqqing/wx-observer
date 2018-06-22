@@ -72,7 +72,9 @@ export default class Watcher {
     this.newDeps = []
     this.depIds = new Set()
     this.newDepIds = new Set()
-    this.expression =  expOrFn.toString()
+    this.expression = process.env.NODE_ENV !== 'production'
+      ? expOrFn.toString()
+      : ''
     // parse expression for getter
     if (typeof expOrFn === 'function') {
       this.getter = expOrFn
@@ -209,12 +211,12 @@ export default class Watcher {
       this.dirty = false
       if (this.user) {
         try {
-          cb.call(this.vm, this.expression, value, oldValue)
+          cb.call(this.vm, value, oldValue)
         } catch (e) {
           handleError(e, this.vm, `callback for watcher "${this.expression}"`)
         }
       } else {
-        cb.call(this.vm, this.expression, value, oldValue)
+        cb.call(this.vm, value, oldValue)
       }
     }
   }

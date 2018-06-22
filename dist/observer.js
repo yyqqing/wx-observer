@@ -4,10 +4,10 @@
  * Released under the MIT License.
  */
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.Vue = {})));
-}(this, (function (exports) { 'use strict';
+	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+	typeof define === 'function' && define.amd ? define(factory) :
+	(global.Vue = factory());
+}(this, (function () { 'use strict';
 
 /*  */
 
@@ -526,7 +526,9 @@ var arrayKeys = Object.getOwnPropertyNames(arrayMethods);
  */
 var shouldObserve = true;
 
-
+function toggleObserving (value) {
+  shouldObserve = value;
+}
 
 /**
  * Observer class that is attached to each observed
@@ -922,7 +924,7 @@ var Watcher = function Watcher (
   this.newDeps = [];
   this.depIds = new _Set();
   this.newDepIds = new _Set();
-  this.expression =expOrFn.toString();
+  this.expression = expOrFn.toString();
   // parse expression for getter
   if (typeof expOrFn === 'function') {
     this.getter = expOrFn;
@@ -1063,12 +1065,12 @@ Watcher.prototype.getAndInvoke = function getAndInvoke (cb) {
     this.dirty = false;
     if (this.user) {
       try {
-        cb.call(this.vm, this.expression, value, oldValue);
+        cb.call(this.vm, value, oldValue);
       } catch (e) {
         handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
       }
     } else {
-      cb.call(this.vm, this.expression, value, oldValue);
+      cb.call(this.vm, value, oldValue);
     }
   }
 };
@@ -1124,107 +1126,140 @@ var sharedPropertyDefinition = {
   set: noop
 };
 
+var computedWatcherOptions = { computed: true };
+
 function proxy(target, sourceKey, key) {
-  sharedPropertyDefinition.get = function() {
+  sharedPropertyDefinition.get = function () {
     return this[sourceKey][key]
   };
-  sharedPropertyDefinition.set = function(val) {
+  sharedPropertyDefinition.set = function (val) {
     this[sourceKey][key] = val;
   };
   Object.defineProperty(target, key, sharedPropertyDefinition);
 }
 
-function _watchData(vm, data, preKeyPath) {
-  if ( preKeyPath === void 0 ) preKeyPath = '';
-
-  if (Array.isArray(data)) {
-    for (var i = 0, l = data.length; i < l; i++) {
-      _watchData(vm, data[i], preKeyPath + i + '.');
-    }
+function defineComputed(
+  target,
+  key,
+  userDef
+) {
+  var shouldCache = false;
+  if (typeof userDef === 'function') {
+    sharedPropertyDefinition.get = shouldCache ?
+      createComputedGetter(key) :
+      userDef;
+    sharedPropertyDefinition.set = noop;
   } else {
-    var keys = Object.keys(data);
-    for (var i$1 = 0; i$1 < keys.length; i$1++) {
-      var pk = preKeyPath + keys[i$1];
+    sharedPropertyDefinition.get = userDef.get ?
+      shouldCache && userDef.cache !== false ?
+      createComputedGetter(key) :
+      userDef.get :
+      noop;
+    sharedPropertyDefinition.set = userDef.set ?
+      userDef.set :
+      noop;
+  }
+  if (sharedPropertyDefinition.set === noop) {
+    sharedPropertyDefinition.set = function () {
+      console.log(
+        ("Computed property \"" + key + "\" was assigned to but it has no setter.")
+      );
+    };
+  }
+  Object.defineProperty(target, key, sharedPropertyDefinition);
+}
 
-      if (!isReserved(pk)) {
-        new Watcher(vm, pk, vm._renderDelegate);
-
-        var _data = data[keys[i$1]];
-        if ((Array.isArray(_data) || isPlainObject(_data)) && Object.isExtensible(_data)) {
-          _watchData(vm, _data, pk + '.');
-        }
-      }
+function createComputedGetter(key) {
+  return function computedGetter() {
+    var watcher = this._computedWatchers && this._computedWatchers[key];
+    if (watcher) {
+      watcher.depend();
+      return watcher.evaluate()
     }
   }
 }
 
-var VM = function VM(target) {
-  var this$1 = this;
-
+var VM = function VM(options) {
   this._watchers = [];
-  this._computedWatchers = {};
+  var vm = this;
 
-  this._render = target._update;
-
-  var props = this._data = target.props || {};
-  Object.keys(props).forEach(function (key) {
+  toggleObserving(true);
+  // init data
+  var data = vm._data = options.data || {};
+  Object.keys(data).forEach(function (key) {
     if (!isReserved(key)) {
-      proxy(this$1, "_data", key);
-      // init setData
-      this$1._render(key, props[key], props[key]);
+      proxy(vm, "_data", key);
     }
   });
-  makeObservable(props);
+  observe$1(data, !!options.__asRoot);
 
-  _watchData(this, props);
+  // init computed
+  var computed = options.computed;
+  var watchers = vm._computedWatchers = Object.create(null);
+  for (var key in computed) {
+    var userDef = computed[key];
+    var getter = typeof userDef === 'function' ? userDef : userDef.get;
+    // create internal watcher for the computed property.
+    watchers[key] = new Watcher(
+      vm,
+      getter || noop,
+      noop,
+      computedWatcherOptions
+    );
+
+    if (!(key in vm)) {
+      defineComputed(vm, key, userDef);
+    } else {
+      console.log(("The computed property \"" + key + "\" is already defined in data."));
+    }
+  }
 };
 
-VM.prototype._renderDelegate = function _renderDelegate (path, newval, oldval) {
-  var wxpath = path.replace(/\.(\d)\./g, '[$1].');
-  this._render(wxpath, newval, oldval);
+VM.prototype.allData = function allData () {
+    var this$1 = this;
+
+  var data = {};
+  Object.keys(this).forEach(function (k) {
+    if (!isReserved(k)) {
+      data[k] = this$1[k];
+    }
+  });
+  return data
 };
 
 VM.prototype.teardown = function teardown () {
-    var this$1 = this;
-
+  if (this._watcher) {
+    this._watcher.teardown();
+  }
   this._watchers.forEach(function (w) {
     w.teardown();
   });
-  Object.keys(this._computedWatchers).forEach(function (k) {
-    this$1._computedWatchers[k].teardown();
-  });
-  this._watchers = [];
   this._data = {};
+  this._watchers = [];
   this._computedWatchers = {};
 };
 
-var observe$$1 = function(page) {
+/*  */
+
+var observe = function (page) {
 
   var oldOnLoad = page.onLoad;
   var oldOnUnload = page.onUnload;
 
-  if (!page._update) {
-    page._update = function(wxpath, newval, oldval) {
-      var obj;
+  page.onLoad = function () {
+    var this$1 = this;
 
-      console.warn('(@wx-observe default) : page._update = function(wxpath, newval, oldval)\n    path = ', wxpath, '\n    newval = ', newval, '\n    oldval = ', oldval);
-      this.setData(( obj = {
-        'path': wxpath,
-        'newval': newval,
-        'oldval': oldval
-      }, obj[("" + wxpath)] = newval, obj));
-    };
-  }
-
-  page.onLoad = function() {
-    this._vm = new VM(this);
+    this._vm = new VM(this.observable);
+    new Watcher(this._vm, function () {
+      this$1.setData(this$1._vm.allData());
+    }, noop, {}, true);
 
     if (oldOnLoad) {
       oldOnLoad.apply(this, arguments);
     }
   };
 
-  page.onUnload = function() {
+  page.onUnload = function () {
     if (this._vm) {
       this._vm.teardown();
     }
@@ -1237,38 +1272,15 @@ var observe$$1 = function(page) {
   return page
 };
 
-var makeObservable = function(obj, asRootData) {
-  if ( asRootData === void 0 ) asRootData = true;
-
-  if (hasOwn(obj, '__ob__')) {
-    return obj
-  }
-
-  observe$1(obj, asRootData);
-  // return obj
-
-  var delegate = Object.create(null);
-  Object.keys(obj).forEach(function (k) {
-    Object.defineProperty(delegate, k, {
-      enumerable: true,
-      configurable: true,
-      get: function() {
-        return obj[k]
-      },
-      set: function(val) {
-        obj[k] = val;
-      }
-    });
-  });
-
-  // console.log('makeObservable obj = ', obj, delegate)
-
-  return delegate
+var observable = function (obj) {
+  return new VM(obj)
 };
 
-exports.observe = observe$$1;
-exports.makeObservable = makeObservable;
+var entry = {
+  observe: observe,
+  observable: observable
+}
 
-Object.defineProperty(exports, '__esModule', { value: true });
+return entry;
 
 })));
