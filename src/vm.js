@@ -2,7 +2,7 @@
 
 import { observe as vueObserve, toggleObserving } from 'core/observer/index'
 import Watcher from 'core/observer/watcher'
-import { noop, hasOwn, isReserved, isPlainObject } from 'core/util/index'
+import { noop, hasOwn, isReserved, isPlainObject, bind } from 'core/util/index'
 
 const sharedPropertyDefinition = {
   enumerable: true,
@@ -77,7 +77,7 @@ export default class VM {
         proxy(vm, `_data`, key)
       }
     })
-    vueObserve(data, !!options.__asRoot)
+    vueObserve(data, true)
 
     // init computed
     let computed = options.computed
@@ -98,6 +98,12 @@ export default class VM {
       } else {
         console.log(`The computed property "${key}" is already defined in data.`);
       }
+    }
+
+    // init methods
+    let methods = options.methods
+    for (const key in methods) {
+      vm[key] = methods[key] == null ? noop : bind(methods[key], vm)
     }
   }
 

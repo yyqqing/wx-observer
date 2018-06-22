@@ -1191,7 +1191,7 @@ var VM = function VM(options) {
       proxy(vm, "_data", key);
     }
   });
-  observe$1(data, !!options.__asRoot);
+  observe$1(data, true);
 
   // init computed
   var computed = options.computed;
@@ -1212,6 +1212,12 @@ var VM = function VM(options) {
     } else {
       console.log(("The computed property \"" + key + "\" is already defined in data."));
     }
+  }
+
+  // init methods
+  var methods = options.methods;
+  for (var key$1 in methods) {
+    vm[key$1] = methods[key$1] == null ? noop : bind(methods[key$1], vm);
   }
 };
 

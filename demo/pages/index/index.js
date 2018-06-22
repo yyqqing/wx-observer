@@ -62,5 +62,9 @@ Page(observer.observe({
     } else {
       model[prop] = 'changed ' + val
     }
+  },
+
+  btnCallMethod(e) {
+    model.updateProp1()
   }
 }))

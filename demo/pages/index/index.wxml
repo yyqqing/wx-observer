@@ -12,4 +12,5 @@
   <view>model.prop5: {{ prop5 }}</view>
 
   <button bindtap='btntap'>change</button>
+  <button bindtap='btnCallMethod'>call method</button>
 </view>

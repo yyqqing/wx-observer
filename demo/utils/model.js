@@ -11,6 +11,11 @@ var observedObj = observer.observable({
     prop5() {
       return 'prop5 = ' + this.prop1
     }
+  },
+  methods: {
+    updateProp1 () {
+      this.prop1 = 'updateProp1'
+    }
   }
 })
 
