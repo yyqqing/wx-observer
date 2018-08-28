@@ -2,6 +2,7 @@
 
 import VM from './vm'
 import Watcher from 'core/observer/watcher'
+import { set as vueSet } from 'core/observer/index'
 import { noop } from 'core/util/index'
 
 var observe = function (page) {
@@ -39,5 +40,6 @@ var observable = function (obj: any) {
 
 export default {
   observe,
-  observable
+  observable,
+  set: vueSet
 }

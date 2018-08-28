@@ -57,7 +57,10 @@ function isPlainObject (obj) {
 /**
  * Check if val is a valid array index.
  */
-
+function isValidArrayIndex (val) {
+  var n = parseFloat(String(val));
+  return n >= 0 && Math.floor(n) === n && isFinite(val)
+}
 
 /**
  * Convert a value to a string that is actually rendered.
@@ -691,7 +694,28 @@ function defineReactive (
  * triggers change notification if the property doesn't
  * already exist.
  */
-
+function set (target, key, val) {
+  if (Array.isArray(target) && isValidArrayIndex(key)) {
+    target.length = Math.max(target.length, key);
+    target.splice(key, 1, val);
+    return val
+  }
+  if (key in target && !(key in Object.prototype)) {
+    target[key] = val;
+    return val
+  }
+  var ob = (target).__ob__;
+  if (target._isVue || (ob && ob.vmCount)) {
+    return val
+  }
+  if (!ob) {
+    target[key] = val;
+    return val
+  }
+  defineReactive(ob.value, key, val);
+  ob.dep.notify();
+  return val
+}
 
 /**
  * Delete a property and trigger change if necessary.
@@ -1284,7 +1308,8 @@ var observable = function (obj) {
 
 var entry = {
   observe: observe,
-  observable: observable
+  observable: observable,
+  set: set
 }
 
 return entry;
