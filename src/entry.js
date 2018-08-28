@@ -11,10 +11,13 @@ var observe = function (page) {
   var oldOnUnload = page.onUnload
 
   page.onLoad = function () {
-    this._vm = new VM(this.observable)
-    new Watcher(this._vm, () => {
-      this.setData(this._vm.allData())
-    }, noop, {}, true)
+    if (this.model) {
+      this.model = this._vm = new VM(this.model)
+      
+      new Watcher(this._vm, () => {
+        this.setData(this._vm.allData())
+      }, noop, {}, true)
+    }
 
     if (oldOnLoad) {
       oldOnLoad.apply(this, arguments)

@@ -1279,10 +1279,13 @@ var observe = function (page) {
   page.onLoad = function () {
     var this$1 = this;
 
-    this._vm = new VM(this.observable);
-    new Watcher(this._vm, function () {
-      this$1.setData(this$1._vm.allData());
-    }, noop, {}, true);
+    if (this.model) {
+      this.model = this._vm = new VM(this.model);
+      
+      new Watcher(this._vm, function () {
+        this$1.setData(this$1._vm.allData());
+      }, noop, {}, true);
+    }
 
     if (oldOnLoad) {
       oldOnLoad.apply(this, arguments);
