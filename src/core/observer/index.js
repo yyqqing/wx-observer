@@ -9,6 +9,8 @@ import {
   hasProto,
   isObject,
   isPlainObject,
+  isPrimitive,
+  isUndef,
   isValidArrayIndex,
   isServerRendering
 } from '../util/index'
@@ -42,10 +44,11 @@ export class Observer {
     this.vmCount = 0
     def(value, '__ob__', this)
     if (Array.isArray(value)) {
-      const augment = hasProto
-        ? protoAugment
-        : copyAugment
-      augment(value, arrayMethods, arrayKeys)
+      if (hasProto) {
+        protoAugment(value, arrayMethods)
+      } else {
+        copyAugment(value, arrayMethods, arrayKeys)
+      }
       this.observeArray(value)
     } else {
       this.walk(value)
@@ -80,7 +83,7 @@ export class Observer {
  * Augment an target Object or Array by intercepting
  * the prototype chain using __proto__
  */
-function protoAugment (target, src: Object, keys: any) {
+function protoAugment (target, src: Object) {
   /* eslint-disable no-proto */
   target.__proto__ = src
   /* eslint-enable no-proto */
@@ -176,6 +179,8 @@ export function defineReactive (
       if (process.env.NODE_ENV !== 'production' && customSetter) {
         customSetter()
       }
+      // #7981: for accessor properties without setter
+      if (getter && !setter) return
       if (setter) {
         setter.call(obj, newVal)
       } else {
@@ -193,6 +198,11 @@ export function defineReactive (
  * already exist.
  */
 export function set (target: Array<any> | Object, key: any, val: any): any {
+  if (process.env.NODE_ENV !== 'production' &&
+    (isUndef(target) || isPrimitive(target))
+  ) {
+    warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
+  }
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
     target.splice(key, 1, val)
@@ -223,6 +233,11 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
  * Delete a property and trigger change if necessary.
  */
 export function del (target: Array<any> | Object, key: any) {
+  if (process.env.NODE_ENV !== 'production' &&
+    (isUndef(target) || isPrimitive(target))
+  ) {
+    warn(`Cannot delete reactive property on undefined, null, or primitive value: ${(target: any)}`)
+  }
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.splice(key, 1)
     return

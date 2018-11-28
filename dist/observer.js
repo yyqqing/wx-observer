@@ -1,5 +1,5 @@
 /*!
- * WxObserver.js v0.0.1
+ * WxObserver.js v0.1.0
  * (c) 2014-2018 yyqqing
  * Released under the MIT License.
  */
@@ -23,7 +23,7 @@
   }
 
   /**
-   * Get the raw type string of a value e.g. [object Object]
+   * Get the raw type string of a value, e.g., [object Object].
    */
   var _toString = Object.prototype.toString;
 
@@ -67,12 +67,12 @@
   var isBuiltInTag = makeMap('slot,component', true);
 
   /**
-   * Check if a attribute is a reserved attribute.
+   * Check if an attribute is a reserved attribute.
    */
   var isReservedAttribute = makeMap('key,ref,slot,slot-scope,is');
 
   /**
-   * Remove an item from an array
+   * Remove an item from an array.
    */
   function remove (arr, item) {
     if (arr.length) {
@@ -84,7 +84,7 @@
   }
 
   /**
-   * Check whether the object has the property.
+   * Check whether an object has the property.
    */
   var hasOwnProperty = Object.prototype.hasOwnProperty;
   function hasOwn (obj, key) {
@@ -92,11 +92,11 @@
   }
 
   /**
-   * Simple bind polyfill for environments that do not support it... e.g.
-   * PhantomJS 1.x. Technically we don't need this anymore since native bind is
-   * now more performant in most browsers, but removing it would be breaking for
-   * code that was able to run in PhantomJS 1.x, so this must be kept for
-   * backwards compatibility.
+   * Simple bind polyfill for environments that do not support it,
+   * e.g., PhantomJS 1.x. Technically, we don't need this anymore
+   * since native bind is now performant enough in most browsers.
+   * But removing it would mean breaking code that was able to run in
+   * PhantomJS 1.x, so this must be kept for backward compatibility.
    */
 
   /* istanbul ignore next */
@@ -122,10 +122,12 @@
     ? nativeBind
     : polyfillBind;
 
+  /* eslint-disable no-unused-vars */
+
   /**
    * Perform no operation.
    * Stubbing args to make Flow happy without leaving useless transpiled code
-   * with ...rest (https://flow.org/blog/2017/05/07/Strict-Function-Call-Arity/)
+   * with ...rest (https://flow.org/blog/2017/05/07/Strict-Function-Call-Arity/).
    */
   function noop (a, b, c) {}
 
@@ -439,10 +441,11 @@
     this.vmCount = 0;
     def(value, '__ob__', this);
     if (Array.isArray(value)) {
-      var augment = hasProto
-        ? protoAugment
-        : copyAugment;
-      augment(value, arrayMethods, arrayKeys);
+      if (hasProto) {
+        protoAugment(value, arrayMethods);
+      } else {
+        copyAugment(value, arrayMethods, arrayKeys);
+      }
       this.observeArray(value);
     } else {
       this.walk(value);
@@ -476,7 +479,7 @@
    * Augment an target Object or Array by intercepting
    * the prototype chain using __proto__
    */
-  function protoAugment (target, src, keys) {
+  function protoAugment (target, src) {
     /* eslint-disable no-proto */
     target.__proto__ = src;
     /* eslint-enable no-proto */
@@ -572,6 +575,8 @@
         if (customSetter) {
           customSetter();
         }
+        // #7981: for accessor properties without setter
+        if (getter && !setter) { return }
         if (setter) {
           setter.call(obj, newVal);
         } else {
@@ -609,6 +614,28 @@
     defineReactive$$1(ob.value, key, val);
     ob.dep.notify();
     return val
+  }
+
+  /**
+   * Delete a property and trigger change if necessary.
+   */
+  function del (target, key) {
+    if (Array.isArray(target) && isValidArrayIndex(key)) {
+      target.splice(key, 1);
+      return
+    }
+    var ob = (target).__ob__;
+    if (target._isVue || (ob && ob.vmCount)) {
+      return
+    }
+    if (!hasOwn(target, key)) {
+      return
+    }
+    delete target[key];
+    if (!ob) {
+      return
+    }
+    ob.dep.notify();
   }
 
   /**
@@ -749,7 +776,7 @@
     while (i--) {
       var watcher = queue[i];
       var vm = watcher.vm;
-      if (vm._watcher === watcher && vm._isMounted) ;
+      if (vm._watcher === watcher && vm._isMounted && !vm._isDestroyed) ;
     }
   }
 
@@ -815,16 +842,16 @@
     if (options) {
       this.deep = !!options.deep;
       this.user = !!options.user;
-      this.computed = !!options.computed;
+      this.lazy = !!options.lazy;
       this.sync = !!options.sync;
       this.before = options.before;
     } else {
-      this.deep = this.user = this.computed = this.sync = false;
+      this.deep = this.user = this.lazy = this.sync = false;
     }
     this.cb = cb;
     this.id = ++uid$1; // uid for batching
     this.active = true;
-    this.dirty = this.computed; // for computed watchers
+    this.dirty = this.lazy; // for lazy watchers
     this.deps = [];
     this.newDeps = [];
     this.depIds = new _Set();
@@ -836,15 +863,12 @@
     } else {
       this.getter = parsePath(expOrFn);
       if (!this.getter) {
-        this.getter = function () {};
+        this.getter = noop;
       }
     }
-    if (this.computed) {
-      this.value = undefined;
-      this.dep = new Dep();
-    } else {
-      this.value = this.get();
-    }
+    this.value = this.lazy
+      ? undefined
+      : this.get();
   };
 
   /**
@@ -916,27 +940,9 @@
    * Will be called when a dependency changes.
    */
   Watcher.prototype.update = function update () {
-      var this$1 = this;
-
     /* istanbul ignore else */
-    if (this.computed) {
-      // A computed property watcher has two modes: lazy and activated.
-      // It initializes as lazy by default, and only becomes activated when
-      // it is depended on by at least one subscriber, which is typically
-      // another computed property or a component's render function.
-      if (this.dep.subs.length === 0) {
-        // In lazy mode, we don't want to perform computations until necessary,
-        // so we simply mark the watcher as dirty. The actual computation is
-        // performed just-in-time in this.evaluate() when the computed property
-        // is accessed.
-        this.dirty = true;
-      } else {
-        // In activated mode, we want to proactively perform the computation
-        // but only notify our subscribers when the value has indeed changed.
-        this.getAndInvoke(function () {
-          this$1.dep.notify();
-        });
-      }
+    if (this.lazy) {
+      this.dirty = true;
     } else if (this.sync) {
       this.run();
     } else {
@@ -950,54 +956,49 @@
    */
   Watcher.prototype.run = function run () {
     if (this.active) {
-      this.getAndInvoke(this.cb);
-    }
-  };
-
-  Watcher.prototype.getAndInvoke = function getAndInvoke (cb) {
-    var value = this.get();
-    if (
-      value !== this.value ||
-      // Deep watchers and watchers on Object/Arrays should fire even
-      // when the value is the same, because the value may
-      // have mutated.
-      isObject(value) ||
-      this.deep
-    ) {
-      // set new value
-      var oldValue = this.value;
-      this.value = value;
-      this.dirty = false;
-      if (this.user) {
-        try {
-          cb.call(this.vm, value, oldValue);
-        } catch (e) {
-          handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
+      var value = this.get();
+      if (
+        value !== this.value ||
+        // Deep watchers and watchers on Object/Arrays should fire even
+        // when the value is the same, because the value may
+        // have mutated.
+        isObject(value) ||
+        this.deep
+      ) {
+        // set new value
+        var oldValue = this.value;
+        this.value = value;
+        if (this.user) {
+          try {
+            this.cb.call(this.vm, value, oldValue);
+          } catch (e) {
+            handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
+          }
+        } else {
+          this.cb.call(this.vm, value, oldValue);
         }
-      } else {
-        cb.call(this.vm, value, oldValue);
       }
     }
   };
 
   /**
-   * Evaluate and return the value of the watcher.
-   * This only gets called for computed property watchers.
+   * Evaluate the value of the watcher.
+   * This only gets called for lazy watchers.
    */
   Watcher.prototype.evaluate = function evaluate () {
-    if (this.dirty) {
-      this.value = this.get();
-      this.dirty = false;
-    }
-    return this.value
+    this.value = this.get();
+    this.dirty = false;
   };
 
   /**
-   * Depend on this watcher. Only for computed property watchers.
+   * Depend on all deps collected by this watcher.
    */
   Watcher.prototype.depend = function depend () {
-    if (this.dep && Dep.target) {
-      this.dep.depend();
+      var this$1 = this;
+
+    var i = this.deps.length;
+    while (i--) {
+      this$1.deps[i].depend();
     }
   };
 
@@ -1178,7 +1179,8 @@
   var entry = {
     observe: observe$1,
     observable: observable,
-    set: set
+    set: set,
+    del: del
   };
 
   return entry;
