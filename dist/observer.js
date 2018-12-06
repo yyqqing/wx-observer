@@ -1,5 +1,5 @@
 /*!
- * WxObserver.js v0.1.0
+ * WxObserver.js v0.1.2
  * (c) 2014-2018 yyqqing
  * Released under the MIT License.
  */
