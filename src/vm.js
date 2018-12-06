@@ -65,8 +65,11 @@ function createComputedGetter(key) {
 }
 
 export default class VM {
+
   constructor(options) {
     this._watchers = []
+    this._dataKeys = []
+
     let vm = this
 
     toggleObserving(true)
@@ -75,6 +78,8 @@ export default class VM {
     Object.keys(data).forEach(key => {
       if (!isReserved(key)) {
         proxy(vm, `_data`, key)
+
+        this._dataKeys.push(key)
       }
     })
     vueObserve(data, true)
@@ -83,6 +88,10 @@ export default class VM {
     let computed = options.computed
     const watchers = vm._computedWatchers = Object.create(null)
     for (const key in computed) {
+      if (!isReserved(key)) {
+        this._dataKeys.push(key)
+      }
+
       const userDef = computed[key]
       const getter = typeof userDef === 'function' ? userDef : userDef.get
       // create internal watcher for the computed property.
@@ -109,10 +118,8 @@ export default class VM {
 
   allData() {
     let data = {}
-    Object.keys(this).forEach(k => {
-      if (!isReserved(k)) {
-        data[k] = this[k]
-      }
+    this._dataKeys.forEach(k => {
+      data[k] = this[k]
     })
     return data
   }
@@ -124,6 +131,10 @@ export default class VM {
     this._watchers.forEach(w => {
       w.teardown()
     })
+    Object.keys(this._computedWatchers).forEach(k => {
+      this._computedWatchers[k].teardown()
+    })
+
     this._data = {}
     this._watchers = []
     this._computedWatchers = {}

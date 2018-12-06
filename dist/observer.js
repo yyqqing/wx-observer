@@ -1071,7 +1071,11 @@
   }
 
   var VM = function VM(options) {
+    var this$1 = this;
+
     this._watchers = [];
+    this._dataKeys = [];
+
     var vm = this;
 
     toggleObserving(true);
@@ -1080,6 +1084,8 @@
     Object.keys(data).forEach(function (key) {
       if (!isReserved(key)) {
         proxy(vm, "_data", key);
+
+        this$1._dataKeys.push(key);
       }
     });
     observe(data, true);
@@ -1088,6 +1094,10 @@
     var computed = options.computed;
     var watchers = vm._computedWatchers = Object.create(null);
     for (var key in computed) {
+      if (!isReserved(key)) {
+        this$1._dataKeys.push(key);
+      }
+
       var userDef = computed[key];
       var getter = typeof userDef === 'function' ? userDef : userDef.get;
       // create internal watcher for the computed property.
@@ -1116,21 +1126,25 @@
       var this$1 = this;
 
     var data = {};
-    Object.keys(this).forEach(function (k) {
-      if (!isReserved(k)) {
-        data[k] = this$1[k];
-      }
+    this._dataKeys.forEach(function (k) {
+      data[k] = this$1[k];
     });
     return data
   };
 
   VM.prototype.teardown = function teardown () {
+      var this$1 = this;
+
     if (this._watcher) {
       this._watcher.teardown();
     }
     this._watchers.forEach(function (w) {
       w.teardown();
     });
+    Object.keys(this._computedWatchers).forEach(function (k) {
+      this$1._computedWatchers[k].teardown();
+    });
+
     this._data = {};
     this._watchers = [];
     this._computedWatchers = {};
