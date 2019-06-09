@@ -41,11 +41,10 @@ if (typeof Set !== 'undefined' && isNative(Set)) {
   }
 }
 
-interface SimpleSet {
+export interface SimpleSet {
   has(key: string | number): boolean;
   add(key: string | number): mixed;
   clear(): void;
 }
 
 export { _Set }
-export type { SimpleSet }

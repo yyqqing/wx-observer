@@ -7,6 +7,7 @@ const node = require('rollup-plugin-node-resolve')
 const flow = require('rollup-plugin-flow-no-whitespace')
 const version = process.env.VERSION || require('../package.json').version
 const weexVersion = 0
+const featureFlags = require('./feature-flags')
 
 const banner =
   '/*!\n' +
@@ -14,6 +15,15 @@ const banner =
   ' * (c) 2014-' + new Date().getFullYear() + ' yyqqing\n' +
   ' * Released under the MIT License.\n' +
   ' */'
+
+const weexFactoryPlugin = {
+  intro () {
+    return 'module.exports = function weexFactory (exports, document) {'
+  },
+  outro () {
+    return '}'
+  }
+}
 
 const aliases = require('./alias')
 const resolve = p => {
@@ -50,13 +60,7 @@ function genConfig (name) {
     input: opts.entry,
     external: opts.external,
     plugins: [
-      replace({
-        __WEEX__: !!opts.weex,
-        __WEEX_VERSION__: weexVersion,
-        __VERSION__: version
-      }),
       flow(),
-      buble(),
       alias(Object.assign({}, aliases, opts.alias))
     ].concat(opts.plugins || []),
     output: {
@@ -64,13 +68,32 @@ function genConfig (name) {
       format: opts.format,
       banner: opts.banner,
       name: opts.moduleName || 'Vue'
+    },
+    onwarn: (msg, warn) => {
+      if (!/Circular/.test(msg)) {
+        warn(msg)
+      }
     }
   }
 
+  // built-in vars
+  const vars = {
+    __WEEX__: !!opts.weex,
+    __WEEX_VERSION__: weexVersion,
+    __VERSION__: version
+  }
+  // feature flags
+  Object.keys(featureFlags).forEach(key => {
+    vars[`process.env.${key}`] = featureFlags[key]
+  })
+  // build-specific env
   if (opts.env) {
-    config.plugins.push(replace({
-      'process.env.NODE_ENV': JSON.stringify(opts.env)
-    }))
+    vars['process.env.NODE_ENV'] = JSON.stringify(opts.env)
+  }
+  config.plugins.push(replace(vars))
+
+  if (opts.transpile !== false) {
+    config.plugins.push(buble())
   }
 
   Object.defineProperty(config, '_name', {

@@ -32,10 +32,21 @@ function resetSchedulerState () {
   waiting = flushing = false
 }
 
+// Async edge case #6566 requires saving the timestamp when event listeners are
+// attached. However, calling performance.now() has a perf overhead especially
+// if the page has thousands of event listeners. Instead, we take a timestamp
+// every time the scheduler flushes and use that for all event listeners
+// attached during that flush.
+export let currentFlushTimestamp = 0
+
+// Async edge case fix requires storing an event listener's attach timestamp.
+let getNow: () => number = Date.now
+
 /**
  * Flush both queues and run the watchers.
  */
 function flushSchedulerQueue () {
+  currentFlushTimestamp = getNow()
   flushing = true
   let watcher, id
 
